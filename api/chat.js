@@ -80,7 +80,7 @@ async function callOpenRouter(tier, messages, systemPrompt) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`,
           'HTTP-Referer': process.env.APP_URL || 'https://chatbotperaturan.vercel.app',
-          'X-Title': 'CORE — Comprehensive Oversight Regulatory Explorer',
+          'X-Title': 'CORE - Comprehensive Oversight Regulatory Explorer',
         },
         body: JSON.stringify({
           model,
@@ -190,8 +190,18 @@ module.exports = async function handler(req, res) {
     }
 
     // Build context string
+    // Sanitasi teks agar tidak ada karakter non-ASCII yang merusak ByteString
+    function sanitize(s) {
+      return (s || '').replace(/[\u0100-\uFFFF]/g, c => {
+        // Ganti karakter unicode umum dengan padanannya
+        const map = { '\u2014': '-', '\u2013': '-', '\u2018': "'", '\u2019': "'",
+                      '\u201C': '"', '\u201D': '"', '\u2026': '...', '\u00A0': ' ' }
+        return map[c] || ' '
+      })
+    }
+
     const context = chunks.length > 0
-      ? chunks.map(c => `=== ${c.pasal} — ${c.source} (${c.bab || ''}) ===\n${c.content}`).join('\n\n')
+      ? chunks.map(c => `=== ${c.pasal} - ${sanitize(c.source)} (${c.bab || ''}) ===\n${sanitize(c.content)}`).join('\n\n')
       : 'Tidak ada pasal yang relevan ditemukan dalam database.'
 
     // System prompt berbeda untuk file analysis vs chat biasa
