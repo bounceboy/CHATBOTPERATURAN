@@ -2012,18 +2012,28 @@ function showConfirm(title, body, onOk, okLabel = 'Hapus') {
   document.getElementById('confirm-title').textContent = title
   document.getElementById('confirm-body').textContent = body
   document.getElementById('confirm-ok-btn').textContent = okLabel
-  confirmCallback = onOk
+  
+  // Clone tombol untuk hapus event listener lama
+  const oldBtn = document.getElementById('confirm-ok-btn')
+  const newBtn = oldBtn.cloneNode(true)
+  oldBtn.parentNode.replaceChild(newBtn, oldBtn)
+  
+  // Pasang listener baru dengan closure langsung
+  newBtn.addEventListener('click', () => {
+    document.getElementById('confirm-overlay').classList.remove('show')
+    onOk()
+  })
+  
   document.getElementById('confirm-overlay').classList.add('show')
 }
 
 function closeConfirm() {
   document.getElementById('confirm-overlay').classList.remove('show')
-  confirmCallback = null
 }
 
 function confirmOk() {
+  // Tidak dipakai lagi — kept for compatibility
   closeConfirm()
-  if (confirmCallback) confirmCallback()
 }
 </script>
 </body>
