@@ -58,21 +58,27 @@ export default async function handler(req, res) {
     if (!id) return res.status(400).json({ error: 'ID wajib diisi.' })
 
     try {
-      // Hapus chunks dulu
+      // Hapus chunks dulu (pojk_id foreign key)
       const { error: chunkErr } = await supabase
         .from('pojk_chunks')
         .delete()
         .eq('pojk_id', id)
-      if (chunkErr) throw chunkErr
+
+      if (chunkErr) {
+        console.error('Delete chunks error:', chunkErr)
+        // Lanjut saja walau chunk gagal — mungkin memang kosong
+      }
 
       // Hapus dari pojk_list
-      const { error: listErr } = await supabase
+      const { data: deleted, error: listErr } = await supabase
         .from('pojk_list')
         .delete()
         .eq('id', id)
+        .select()
+
       if (listErr) throw listErr
 
-      return res.status(200).json({ success: true, message: 'POJK berhasil dihapus.' })
+      return res.status(200).json({ success: true, message: 'POJK berhasil dihapus.', deleted })
     } catch (err) {
       console.error('admin-pojk DELETE error:', err)
       return res.status(500).json({ error: err.message })

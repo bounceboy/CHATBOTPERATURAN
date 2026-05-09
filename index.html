@@ -964,6 +964,34 @@ html, body { height: 100%; background: var(--ink); color: var(--white); font-fam
 }
 .btn-confirm-del:hover { background: rgba(232,85,85,.25); }
 
+/* Batch queue */
+.batch-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 12px;
+}
+.batch-item .bi-name { flex: 1; color: var(--white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.batch-item .bi-status {
+  font-size: 11px; font-family: var(--font-mono);
+  white-space: nowrap; flex-shrink: 0;
+}
+.bi-status.pending  { color: var(--dimmer); }
+.bi-status.uploading{ color: var(--gold); }
+.bi-status.done     { color: var(--green); }
+.bi-status.error    { color: var(--err); }
+.batch-summary {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--dim);
+  font-family: var(--font-mono);
+  text-align: center;
+}
+
 /* Responsive */
 @media (max-width: 640px) {
   #suggestions { grid-template-columns: 1fr; }
@@ -1171,11 +1199,14 @@ html, body { height: 100%; background: var(--ink); color: var(--white); font-fam
             ondragover="dzDragOver(event)" ondragleave="dzDragLeave(event)" ondrop="dzDrop(event)">
             <div class="dz-icon">📂</div>
             <div class="dz-text">Klik atau drag &amp; drop PDF di sini</div>
-            <div class="dz-hint">Format: PDF · Maks 50MB</div>
+            <div class="dz-hint">Format: PDF · Bisa pilih banyak file · Maks 50MB/file</div>
           </div>
-          <input type="file" id="pojk-file-input" accept=".pdf" style="display:none" onchange="handlePojkFileSelect(event)">
+          <input type="file" id="pojk-file-input" accept=".pdf" multiple style="display:none" onchange="handlePojkFileSelect(event)">
 
-          <div id="upload-progress-wrap">
+          <!-- Batch queue -->
+          <div id="batch-queue" style="display:none; margin-top:12px; display:none; flex-direction:column; gap:6px;"></div>
+
+          <div id="upload-progress-wrap" style="display:none; margin-top:14px;">
             <div class="progress-label">
               <span id="upload-status-label">Memproses...</span>
               <span id="upload-pct">0%</span>
@@ -1522,83 +1553,99 @@ function dzDragLeave(e) {
 function dzDrop(e) {
   e.preventDefault()
   document.getElementById('drop-zone').classList.remove('drag-over')
-  const file = e.dataTransfer.files[0]
-  if (file) uploadPojkFile(file)
+  const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.pdf'))
+  if (files.length) uploadPojkBatch(files)
+  else showToast('Hanya file PDF yang diterima.', 'error')
 }
 function handlePojkFileSelect(e) {
-  const file = e.target.files[0]
-  if (file) uploadPojkFile(file)
+  const files = Array.from(e.target.files)
+  if (files.length) uploadPojkBatch(files)
   e.target.value = ''
 }
 
-async function uploadPojkFile(file) {
-  if (!file.name.endsWith('.pdf')) {
-    showToast('Hanya file PDF yang diterima.', 'error')
-    return
+async function uploadPojkBatch(files) {
+  // Validasi ukuran
+  const oversized = files.filter(f => f.size > 50 * 1024 * 1024)
+  if (oversized.length) {
+    showToast(`${oversized.length} file melebihi 50MB dan dilewati.`, 'error')
+    files = files.filter(f => f.size <= 50 * 1024 * 1024)
   }
-  if (file.size > 50 * 1024 * 1024) {
-    showToast('Ukuran file melebihi batas 50MB.', 'error')
-    return
-  }
+  if (!files.length) return
 
+  // Render batch queue
+  const queueEl = document.getElementById('batch-queue')
   const progressWrap = document.getElementById('upload-progress-wrap')
-  const progressFill = document.getElementById('progress-fill')
-  const statusEl = document.getElementById('upload-status')
-  const pctEl = document.getElementById('upload-pct')
-  const labelEl = document.getElementById('upload-status-label')
+  queueEl.innerHTML = ''
+  queueEl.style.display = 'flex'
+  progressWrap.style.display = 'none'
 
-  progressWrap.style.display = 'block'
-  progressFill.style.width = '0%'
-  pctEl.textContent = '0%'
-  labelEl.textContent = 'Membaca file...'
-  statusEl.textContent = ''
+  const items = files.map((file, i) => {
+    const div = document.createElement('div')
+    div.className = 'batch-item'
+    div.id = `bi-${i}`
+    div.innerHTML = `
+      <span style="font-size:14px;">📄</span>
+      <span class="bi-name">${escHtml(file.name)}</span>
+      <span class="bi-status pending" id="bi-status-${i}">Menunggu...</span>`
+    queueEl.appendChild(div)
+    return { file, index: i }
+  })
 
-  try {
-    // Convert to base64
-    const b64 = await new Promise((res, rej) => {
-      const r = new FileReader()
-      r.onload = () => {
-        progressFill.style.width = '20%'; pctEl.textContent = '20%'
-        res(r.result.split(',')[1])
-      }
-      r.onerror = rej
-      r.readAsDataURL(file)
-    })
+  // Summary line
+  const summary = document.createElement('div')
+  summary.className = 'batch-summary'
+  summary.id = 'batch-summary'
+  summary.textContent = `0 / ${files.length} selesai`
+  queueEl.appendChild(summary)
 
-    labelEl.textContent = 'Mengupload ke server...'
-    progressFill.style.width = '40%'; pctEl.textContent = '40%'
+  // Upload satu per satu (sequential — hindari timeout Vercel)
+  let done = 0, failed = 0
+  for (const { file, index } of items) {
+    const statusEl = document.getElementById(`bi-status-${index}`)
+    statusEl.className = 'bi-status uploading'
+    statusEl.textContent = 'Mengupload...'
 
-    const res = await fetch('/api/admin-upload', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + (state.user?.token || '')
-      },
-      body: JSON.stringify({ filename: file.name, filedata: b64 })
-    })
+    try {
+      const b64 = await new Promise((res, rej) => {
+        const r = new FileReader()
+        r.onload = () => res(r.result.split(',')[1])
+        r.onerror = rej
+        r.readAsDataURL(file)
+      })
 
-    progressFill.style.width = '70%'; pctEl.textContent = '70%'
-    labelEl.textContent = 'Memproses & ingesting pasal...'
+      const res = await fetch('/api/admin-upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + (state.user?.token || '')
+        },
+        body: JSON.stringify({ filename: file.name, filedata: b64 })
+      })
 
-    const data = await res.json()
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Upload gagal')
 
-    if (!res.ok) throw new Error(data.error || 'Upload gagal')
+      statusEl.className = 'bi-status done'
+      statusEl.textContent = `✓ ${data.jumlah_pasal || '?'} pasal`
+      done++
 
-    progressFill.style.width = '100%'; pctEl.textContent = '100%'
-    labelEl.textContent = 'Selesai!'
-    statusEl.innerHTML = `<span style="color:#4CAF7D;">✓ Berhasil:</span> ${escHtml(data.nama || file.name)} — ${data.jumlah_pasal || '?'} pasal ter-ingest.`
+    } catch(e) {
+      statusEl.className = 'bi-status error'
+      statusEl.textContent = `✗ Gagal`
+      document.getElementById(`bi-${index}`).title = e.message
+      failed++
+    }
 
-    showToast('POJK berhasil diupload!', 'success')
-    loadPojkList()
-    setTimeout(() => loadAdminData(), 500)
-
-  } catch(e) {
-    progressFill.style.width = '100%'
-    progressFill.style.background = 'var(--err)'
-    labelEl.textContent = 'Gagal'
-    statusEl.innerHTML = `<span style="color:var(--err);">✗ Error:</span> ${escHtml(e.message)}`
-    showToast('Upload gagal: ' + e.message, 'error')
+    document.getElementById('batch-summary').textContent =
+      `${done} / ${files.length} selesai${failed > 0 ? ` · ${failed} gagal` : ''}`
   }
+
+  // Refresh data
+  loadPojkList()
+  setTimeout(() => loadAdminData(), 300)
+
+  if (failed === 0) showToast(`${done} POJK berhasil diupload!`, 'success')
+  else showToast(`${done} berhasil, ${failed} gagal.`, failed === files.length ? 'error' : 'info')
 }
 
 async function deletePojk(id, nama) {
