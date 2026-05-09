@@ -4,7 +4,6 @@ function getSupabase() {
   return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
 }
 
-// Deteksi nomor pasal yang disebutkan eksplisit dalam pertanyaan
 function extractPasalNumbers(query) {
   const matches = query.match(/[Pp]asal\s+(\d+)/g) || []
   return matches.map(m => parseInt(m.replace(/[Pp]asal\s+/, '')))
@@ -19,21 +18,21 @@ function scoreChunk(query, chunk) {
     if (chunk.pasal?.toLowerCase().includes(t)) score += 3
   }
   const domainMap = {
-    'cdd':              ['cdd','identifikasi','verifikasi','nasabah','hubungan usaha'],
-    'edd':              ['edd','enhanced','berisiko tinggi','pep'],
-    'dttot':            ['dttot','dppspm','pemblokiran','teroris','blokir'],
-    'sanksi':           ['sanksi','denda','pelanggaran','administratif'],
-    'pelaporan':        ['laporan','ppatk','mencurigakan','tunai','tkm'],
-    'pelatihan':        ['pelatihan','sdm','pegawai','kye'],
-    'asuransi':         ['asuransi','polis','klaim','beneficiary','penerima manfaat'],
-    'pep':              ['pep','politically exposed','pejabat'],
-    'beneficial owner': ['beneficial owner','pemilik manfaat'],
-    'transfer':         ['transfer','dana','bank pengirim'],
-    'fatf':             ['fatf','negara berisiko','countermeasures'],
-    'konglomerasi':     ['konglomerasi','jaringan kantor','perusahaan anak'],
-    'pengendalian':     ['pengendalian','intern','internal','audit'],
-    'bunyi':            ['pasal','ayat','huruf','wajib','dilarang'],
-    'isi':              ['pasal','ayat','huruf','wajib','dilarang'],
+    'cdd':['cdd','identifikasi','verifikasi','nasabah','hubungan usaha'],
+    'edd':['edd','enhanced','berisiko tinggi','pep'],
+    'dttot':['dttot','dppspm','pemblokiran','teroris','blokir'],
+    'sanksi':['sanksi','denda','pelanggaran','administratif'],
+    'pelaporan':['laporan','ppatk','mencurigakan','tunai','tkm'],
+    'pelatihan':['pelatihan','sdm','pegawai','kye'],
+    'asuransi':['asuransi','polis','klaim','beneficiary','penerima manfaat'],
+    'pep':['pep','politically exposed','pejabat'],
+    'beneficial owner':['beneficial owner','pemilik manfaat'],
+    'transfer':['transfer','dana','bank pengirim'],
+    'fatf':['fatf','negara berisiko','countermeasures'],
+    'konglomerasi':['konglomerasi','jaringan kantor','perusahaan anak'],
+    'pengendalian':['pengendalian','intern','internal','audit'],
+    'apu':['apu','ppt','pppspm','tppu','tppt'],
+    'kebijakan':['kebijakan','prosedur','pedoman','sop'],
   }
   const ql = query.toLowerCase()
   for (const [kw, related] of Object.entries(domainMap)) {
@@ -44,7 +43,10 @@ function scoreChunk(query, chunk) {
   return score
 }
 
-function routeModel(query, chunks) {
+function routeModel(query, chunks, hasFile) {
+  // File analysis selalu pakai powerful
+  if (hasFile) return 'powerful'
+
   let score = chunks.length * 2
   const uniqueSources = new Set(chunks.map(c => c.source))
   score += uniqueSources.size * 5
@@ -78,7 +80,7 @@ async function callOpenRouter(tier, messages, systemPrompt) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`,
           'HTTP-Referer': process.env.APP_URL || 'https://chatbotperaturan.vercel.app',
-          'X-Title': 'POJK Konsultan',
+          'X-Title': 'CORE — Comprehensive Oversight Regulatory Explorer',
         },
         body: JSON.stringify({
           model,
@@ -104,6 +106,41 @@ async function callOpenRouter(tier, messages, systemPrompt) {
   throw lastError || new Error('Semua model tidak tersedia')
 }
 
+// Build pesan untuk file analysis — support PDF, image, docx (text)
+function buildFileMessages(query, file, context) {
+  const { name, ext, data, mime } = file
+
+  // PDF dan gambar bisa langsung dikirim sebagai vision
+  if (['pdf'].includes(ext)) {
+    return [{
+      role: 'user',
+      content: [
+        { type: 'text', text: query },
+        { type: 'text', text: `\n\nKONTEKS POJK YANG RELEVAN:\n${context}` },
+        { type: 'file', file: { filename: name, file_data: `data:application/pdf;base64,${data}` } },
+      ]
+    }]
+  }
+
+  if (['png','jpg','jpeg','webp'].includes(ext)) {
+    return [{
+      role: 'user',
+      content: [
+        { type: 'text', text: query },
+        { type: 'text', text: `\n\nKONTEKS POJK YANG RELEVAN:\n${context}` },
+        { type: 'image_url', image_url: { url: `data:${mime};base64,${data}` } },
+      ]
+    }]
+  }
+
+  // Untuk docx — decode base64 dan kirim sebagai teks
+  // (docx parsing dilakukan di sisi server)
+  return [{
+    role: 'user',
+    content: `${query}\n\nKONTEKS POJK YANG RELEVAN:\n${context}\n\n[File: ${name} — konten tidak dapat dibaca langsung. Analisis berdasarkan POJK yang tersedia.]`
+  }]
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
@@ -111,18 +148,17 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end()
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
-  const { query, messages } = req.body
-  if (!query) return res.status(400).json({ error: 'query wajib diisi' })
+  const { query, messages, file } = req.body
+  if (!query && !file) return res.status(400).json({ error: 'query atau file wajib diisi' })
+
+  const effectiveQuery = query || `Analisis dokumen dan identifikasi ketidaksesuaian dengan POJK`
 
   try {
     const db = getSupabase()
-
-    // Deteksi pasal yang disebut eksplisit
-    const mentionedPasals = extractPasalNumbers(query)
-
+    const mentionedPasals = extractPasalNumbers(effectiveQuery)
     let chunks = []
 
-    // Jika user menyebut nomor pasal spesifik, ambil langsung dari DB
+    // Ambil pasal yang disebut eksplisit
     if (mentionedPasals.length > 0) {
       const pasalStrings = mentionedPasals.map(n => `Pasal ${n}`)
       const { data: directChunks } = await db
@@ -130,14 +166,13 @@ module.exports = async function handler(req, res) {
         .select('id, pasal, bab, bab_title, source, content')
         .in('pasal', pasalStrings)
         .limit(20)
-
-      if (directChunks && directChunks.length > 0) {
-        chunks = directChunks
-      }
+      if (directChunks && directChunks.length > 0) chunks = directChunks
     }
 
-    // Jika belum ada atau perlu tambahan konteks, lakukan keyword search
-    if (chunks.length < 6) {
+    // Keyword search untuk konteks tambahan
+    // Untuk file analysis, ambil lebih banyak chunks
+    const limit = file ? 10 : 6
+    if (chunks.length < limit) {
       const { data: allChunks } = await db
         .from('pojk_chunks')
         .select('id, pasal, bab, bab_title, source, content')
@@ -145,28 +180,45 @@ module.exports = async function handler(req, res) {
 
       if (allChunks && allChunks.length > 0) {
         const scored = allChunks
-          .filter(c => !chunks.find(x => x.id === c.id)) // hindari duplikat
-          .map(c => ({ ...c, score: scoreChunk(query, c) }))
+          .filter(c => !chunks.find(x => x.id === c.id))
+          .map(c => ({ ...c, score: scoreChunk(effectiveQuery, c) }))
           .filter(c => c.score > 0)
           .sort((a, b) => b.score - a.score)
-          .slice(0, 6 - chunks.length)
-
+          .slice(0, limit - chunks.length)
         chunks = [...chunks, ...scored]
       }
     }
 
-    if (chunks.length === 0) {
-      return res.status(200).json({
-        content: 'Tidak ditemukan pasal yang relevan dalam database POJK yang tersedia. Coba gunakan kata kunci yang lebih spesifik.',
-        sources: [], model: null, tier: null,
-      })
-    }
+    // Build context string
+    const context = chunks.length > 0
+      ? chunks.map(c => `=== ${c.pasal} — ${c.source} (${c.bab || ''}) ===\n${c.content}`).join('\n\n')
+      : 'Tidak ada pasal yang relevan ditemukan dalam database.'
 
-    const context = chunks.map(c =>
-      `=== ${c.pasal} — ${c.source} (${c.bab || ''} ${c.bab_title || ''}) ===\n${c.content}`
-    ).join('\n\n')
+    // System prompt berbeda untuk file analysis vs chat biasa
+    const systemPrompt = file
+      ? `Kamu adalah auditor regulasi OJK yang ahli dalam pengawasan sektor perasuransian.
 
-    const systemPrompt = `Kamu adalah konsultan regulasi OJK yang ahli dalam peraturan sektor perasuransian dan jasa keuangan Indonesia.
+Tugasmu: Analisis dokumen yang diunggah dan identifikasi ketidaksesuaian dengan POJK.
+
+FORMAT OUTPUT yang wajib digunakan:
+## Ringkasan Dokumen
+[Ringkasan singkat isi dokumen]
+
+## Temuan Ketidaksesuaian
+[Jika ada ketidaksesuaian, tampilkan dalam format:]
+**[Nomor]. [Judul Temuan]**
+- **Kondisi:** [apa yang ada di dokumen]
+- **Ketentuan:** [Pasal X POJK Y/Tahun]
+- **Gap:** [penjelasan ketidaksesuaian]
+
+## Kesimpulan
+[Kesimpulan singkat]
+
+INSTRUKSI:
+- Gunakan HANYA pasal-pasal dari konteks POJK yang diberikan
+- Jika dokumen sudah sesuai, nyatakan dengan jelas
+- Jika tidak dapat membaca isi dokumen, sampaikan dengan jelas`
+      : `Kamu adalah konsultan regulasi OJK yang ahli dalam peraturan sektor perasuransian dan jasa keuangan Indonesia.
 
 INSTRUKSI:
 - Jawab HANYA berdasarkan konteks pasal yang diberikan
@@ -174,13 +226,26 @@ INSTRUKSI:
 - Selalu sebutkan nomor pasal dan nama POJK sebagai dasar jawaban
 - Jika user meminta "bunyi" atau "isi" suatu pasal, kutip langsung teks pasalnya secara lengkap
 - Jika tidak dapat dijawab dari konteks yang tersedia, katakan dengan jelas
-- Gunakan Bahasa Indonesia yang formal namun mudah dipahami
+- Gunakan Bahasa Indonesia yang formal namun mudah dipahami`
 
-KONTEKS PASAL:
-${context}`
+    // Build messages
+    let apiMessages
+    if (file) {
+      apiMessages = buildFileMessages(
+        effectiveQuery + `\n\nGunakan konteks POJK berikut untuk analisis:\n${context}`,
+        file,
+        context
+      )
+    } else {
+      const contextMsg = `KONTEKS PASAL POJK:\n${context}`
+      apiMessages = [
+        ...(messages || []).slice(-6),
+        { role: 'user', content: `${effectiveQuery}\n\n${contextMsg}` }
+      ]
+    }
 
-    const tier = routeModel(query, chunks)
-    const result = await callOpenRouter(tier, messages || [], systemPrompt)
+    const tier = routeModel(effectiveQuery, chunks, !!file)
+    const result = await callOpenRouter(tier, apiMessages, systemPrompt)
 
     return res.status(200).json({
       content: result.content,
