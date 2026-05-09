@@ -1506,9 +1506,7 @@ async function loadAdminData() {
     const list = data.pojk || []
 
     // Stats
-    const totalPasal = list.reduce((s, p) => s + (p.jumlah_pasal || 0), 0)
     document.getElementById('stat-pojk').textContent = list.length
-    document.getElementById('stat-pasal').textContent = totalPasal.toLocaleString('id-ID')
 
     // List
     const container = document.getElementById('admin-pojk-list')
@@ -1529,7 +1527,7 @@ async function loadAdminData() {
 
         const metaEl = document.createElement('div')
         metaEl.className = 'apl-meta'
-        metaEl.textContent = `${p.tahun || '—'}`
+        metaEl.textContent = p.tahun || '—'
 
         const actEl = document.createElement('div')
         actEl.className = 'apl-actions'
@@ -1644,7 +1642,7 @@ async function uploadPojkBatch(files) {
       if (!res.ok) throw new Error(data.error || 'Upload gagal')
 
       statusEl.className = 'bi-status done'
-      statusEl.textContent = `✓ ${data.jumlah_pasal || '?'} pasal`
+      statusEl.textContent = `✓ Selesai`
       done++
 
     } catch(e) {
