@@ -9,9 +9,22 @@ function extractPasalNumbers(query) {
   return matches.map(m => parseInt(m.replace(/[Pp]asal\s+/, '')))
 }
 
+function extractMentionedPojk(messages) {
+  // Ekstrak nama POJK yang sudah disebut di conversation history
+  const pojkSet = new Set()
+  const pojkRe = /POJK\s+(?:No\.?\s+)?(?:Nomor\s+)?(\d+)\s+Tahun\s+(\d{4})/gi
+  for (const msg of (messages || [])) {
+    const text = typeof msg.content === 'string' ? msg.content : ''
+    for (const m of text.matchAll(pojkRe)) {
+      pojkSet.add(`POJK No. ${m[1]} Tahun ${m[2]}`)
+    }
+  }
+  return [...pojkSet]
+}
+
 function scoreChunk(query, chunk) {
   const tokens = query.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(w => w.length > 2)
-  const text = (chunk.content + ' ' + chunk.pasal + ' ' + (chunk.bab_title || '')).toLowerCase()
+  const text = (chunk.content + ' ' + chunk.pasal + ' ' + (chunk.bab_title || '') + ' ' + (chunk.bab || '')).toLowerCase()
   let score = 0
   for (const t of tokens) {
     if (text.includes(t)) score += 1
@@ -33,6 +46,18 @@ function scoreChunk(query, chunk) {
     'pengendalian':['pengendalian','intern','internal','audit'],
     'apu':['apu','ppt','pppspm','tppu','tppt'],
     'kebijakan':['kebijakan','prosedur','pedoman','sop'],
+    'sinergi':['sinergi','satu kepemilikan','hubungan kepemilikan','pengembangan syariah'],
+    'spin off':['spin off','pemisahan','unit syariah','uus','spin-off'],
+    'pemisahan':['pemisahan','unit syariah','portofolio kepesertaan','uus','spin off'],
+    'syariah':['syariah','tabarru','ujrah','qardh','peserta','kontribusi'],
+    'laporan berkala':['laporan berkala','laporan bulanan','laporan triwulanan','laporan tahunan','laporan publikasi'],
+    'retensi':['retensi','reasuransi','retrosesi','dukungan reasuransi'],
+    'spin-off':['pemisahan','unit syariah','portofolio','kepesertaan'],
+    'ekuitas':['ekuitas','modal disetor','modal minimum','permodalan'],
+    'izin':['izin usaha','perizinan','kelembagaan','pencabutan izin'],
+    'kesehatan':['kesehatan keuangan','tingkat kesehatan','rbc','risk based capital'],
+    'produk':['produk asuransi','pemasaran','saluran distribusi','pialang'],
+    'laporan keuangan':['laporan keuangan','akuntansi','standar akuntansi','ifrs'],
   }
   const ql = query.toLowerCase()
   for (const [kw, related] of Object.entries(domainMap)) {
@@ -156,32 +181,47 @@ module.exports = async function handler(req, res) {
   try {
     const db = getSupabase()
     const mentionedPasals = extractPasalNumbers(effectiveQuery)
+    const mentionedPojk = extractMentionedPojk(messages)
     let chunks = []
 
     // Ambil pasal yang disebut eksplisit
+    // Jika ada POJK yang disebut di history, filter hanya dari POJK tersebut
     if (mentionedPasals.length > 0) {
       const pasalStrings = mentionedPasals.map(n => `Pasal ${n}`)
-      const { data: directChunks } = await db
+      let q = db
         .from('pojk_chunks')
         .select('id, pasal, bab, bab_title, source, content')
         .in('pasal', pasalStrings)
-        .limit(20)
+
+      // Filter by source jika ada POJK spesifik di history
+      if (mentionedPojk.length > 0 && mentionedPojk.length <= 3) {
+        q = q.in('source', mentionedPojk)
+      }
+
+      const { data: directChunks } = await q.limit(20)
       if (directChunks && directChunks.length > 0) chunks = directChunks
     }
 
     // Keyword search untuk konteks tambahan
     // Untuk file analysis, ambil lebih banyak chunks
-    const limit = file ? 10 : 6
+    const limit = file ? 12 : 8
+
+    // Gabungkan query dengan 2 pesan terakhir untuk konteks lebih baik
+    const recentContext = (messages || []).slice(-2)
+      .map(m => typeof m.content === 'string' ? m.content : '')
+      .join(' ')
+    const enrichedQuery = effectiveQuery + ' ' + recentContext
+
     if (chunks.length < limit) {
       const { data: allChunks } = await db
         .from('pojk_chunks')
         .select('id, pasal, bab, bab_title, source, content')
-        .limit(500)
+        .limit(1000)
 
       if (allChunks && allChunks.length > 0) {
         const scored = allChunks
           .filter(c => !chunks.find(x => x.id === c.id))
-          .map(c => ({ ...c, score: scoreChunk(effectiveQuery, c) }))
+          .map(c => ({ ...c, score: scoreChunk(enrichedQuery, c) }))
           .filter(c => c.score > 0)
           .sort((a, b) => b.score - a.score)
           .slice(0, limit - chunks.length)
@@ -231,11 +271,14 @@ INSTRUKSI:
       : `Kamu adalah konsultan regulasi OJK yang ahli dalam peraturan sektor perasuransian dan jasa keuangan Indonesia.
 
 INSTRUKSI:
-- Jawab HANYA berdasarkan konteks pasal yang diberikan
-- Jangan mengarang informasi di luar konteks
-- Selalu sebutkan nomor pasal dan nama POJK sebagai dasar jawaban
-- Jika user meminta "bunyi" atau "isi" suatu pasal, kutip langsung teks pasalnya secara lengkap
-- Jika tidak dapat dijawab dari konteks yang tersedia, katakan dengan jelas
+- Jawab HANYA berdasarkan konteks pasal yang diberikan di bawah
+- DILARANG mengarang, mengasumsikan, atau mengutip pasal yang tidak ada dalam konteks
+- Jika user bertanya tentang pasal tertentu (misalnya "Pasal 13"), cari HANYA di konteks yang tersedia
+- Jika ada beberapa POJK dengan nomor pasal yang sama, gunakan yang paling relevan dengan topik percakapan
+- Selalu sebutkan nomor pasal dan nama POJK lengkap sebagai sumber
+- Jika user meminta "bunyi" atau "isi" suatu pasal, KUTIP LANGSUNG teks lengkapnya dari konteks
+- Jika pasal yang diminta tidak ada dalam konteks, katakan dengan jelas dan jangan mengarang
+- Pertahankan konsistensi dengan jawaban sebelumnya dalam percakapan
 - Gunakan Bahasa Indonesia yang formal namun mudah dipahami`
 
     // Build messages
