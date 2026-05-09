@@ -26,18 +26,27 @@ async function verifyToken(authHeader) {
 // Parse nama POJK dari filename
 // Contoh: POJK_8_2023_APU_PPT.pdf → { nomor: '8/2023', nama: 'POJK 8/2023 APU PPT', tahun: 2023 }
 function parseFilename(filename) {
-  const base = filename.replace(/\.pdf$/i, '').replace(/_/g, ' ')
+  const base = filename.replace(/\.pdf$/i, '').replace(/[_-]/g, ' ').replace(/\s+/g, ' ').trim()
+  const tahunDefault = new Date().getFullYear()
 
-  // Coba ekstrak nomor dan tahun dari pola POJK_X_YYYY atau POJK X/YYYY
-  const match = filename.match(/pojk[_\s-]*(\d+)[_\s/.-]*(\d{4})/i)
-  if (match) {
-    const nomor = match[1]
-    const tahun = parseInt(match[2])
+  // Pola: POJK_8_2023 atau POJK 8/2023 atau POJK-8-2023
+  const matchPojk = filename.match(/pojk[_\s/.-]*(\d+)[_\s/.-]*(\d{4})/i)
+  if (matchPojk) {
+    const nomor = matchPojk[1]
+    const tahun = parseInt(matchPojk[2])
     const namaClean = base.replace(/pojk/i, 'POJK').trim()
-    return { nomor: `${nomor}/${tahun}`, nama: namaClean, tahun }
+    return { nomor: `${nomor}/${tahun}`, nama: namaClean || `POJK ${nomor}/${tahun}`, tahun }
   }
 
-  return { nomor: null, nama: base, tahun: new Date().getFullYear() }
+  // Pola: ada 4 digit tahun di nama file
+  const matchTahun = filename.match(/(\d{4})/)
+  const tahun = matchTahun ? parseInt(matchTahun[1]) : tahunDefault
+
+  // Nomor fallback: gunakan timestamp supaya tidak null
+  const nomor = `upload-${Date.now()}`
+  const nama = base || filename.replace(/\.pdf$/i, '')
+
+  return { nomor, nama, tahun }
 }
 
 // Ekstrak teks dari PDF menggunakan fetch ke Supabase Storage URL
