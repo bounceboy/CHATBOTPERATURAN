@@ -1526,13 +1526,35 @@ async function loadAdminData() {
       list.forEach(p => {
         const row = document.createElement('div')
         row.className = 'admin-pojk-row'
-        row.innerHTML = `
-          <div class="apl-name">${escHtml(p.nama)}</div>
-          <div class="apl-meta">${p.tahun || '—'} · ${p.jumlah_pasal || '?'}ps</div>
-          <div class="apl-actions">
-            ${p.file_url ? `<button class="apl-btn" onclick="window.open('${escHtml(p.file_url)}','_blank')">PDF</button>` : ''}
-            <button class="apl-btn del" onclick="deletePojk('${p.id}','${escHtml(p.nama)}')">Hapus</button>
-          </div>`
+
+        const nameEl = document.createElement('div')
+        nameEl.className = 'apl-name'
+        nameEl.textContent = p.nama
+
+        const metaEl = document.createElement('div')
+        metaEl.className = 'apl-meta'
+        metaEl.textContent = `${p.tahun || '—'} · ${p.jumlah_pasal || '?'}ps`
+
+        const actEl = document.createElement('div')
+        actEl.className = 'apl-actions'
+
+        if (p.file_url) {
+          const pdfBtn = document.createElement('button')
+          pdfBtn.className = 'apl-btn'
+          pdfBtn.textContent = 'PDF'
+          pdfBtn.onclick = () => window.open(p.file_url, '_blank')
+          actEl.appendChild(pdfBtn)
+        }
+
+        const delBtn = document.createElement('button')
+        delBtn.className = 'apl-btn del'
+        delBtn.textContent = 'Hapus'
+        delBtn.onclick = () => deletePojk(p.id, p.nama)
+        actEl.appendChild(delBtn)
+
+        row.appendChild(nameEl)
+        row.appendChild(metaEl)
+        row.appendChild(actEl)
         container.appendChild(row)
       })
     }
