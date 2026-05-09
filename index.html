@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POJK Konsultan — OJK Regulatory AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #0F2B4E;
+    --blue: #1E3A5F;
+    --light: #93C5FD;
+    --bg: #F8FAFC;
+    --white: #FFFFFF;
+    --border: #E2E8F0;
+    --text: #1E293B;
+    --muted: #64748B;
+    --hint: #94A3B8;
+  }
+  html, body { height: 100%; font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); }
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+
+  /* Layout */
+  #app { display: flex; height: 100vh; overflow: hidden; }
+
+  /* Sidebar */
+  #sidebar {
+    width: 260px; flex-shrink: 0; background: var(--navy); color: #fff;
+    display: flex; flex-direction: column; transition: width .25s;
+    overflow: hidden;
+  }
+  #sidebar.collapsed { width: 0; }
+  #sidebar-inner { width: 260px; height: 100%; display: flex; flex-direction: column; }
+  #sidebar-header { padding: 16px; border-bottom: 1px solid rgba(255,255,255,.1); }
+  #sidebar-header .label { font-size: 10px; font-weight: 600; color: var(--light); text-transform: uppercase; letter-spacing: .08em; }
+  #sidebar-header .count { font-size: 11px; color: rgba(255,255,255,.4); margin-top: 2px; }
+  #pojk-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .pojk-item { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 10px 12px; }
+  .pojk-item .name { font-size: 12px; font-weight: 500; color: #fff; line-height: 1.4; }
+  .pojk-item .meta { font-size: 11px; color: rgba(255,255,255,.35); margin-top: 3px; }
+  #pojk-empty { font-size: 12px; color: rgba(255,255,255,.3); text-align: center; padding: 32px 16px; line-height: 1.6; }
+
+  /* Main */
+  #main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+  /* Header */
+  #header {
+    background: var(--navy); color: #fff; padding: 0 16px;
+    display: flex; align-items: center; gap: 12px; height: 56px; flex-shrink: 0;
+    box-shadow: 0 1px 8px rgba(0,0,0,.2);
+  }
+  #toggle-btn { background: none; border: none; color: rgba(255,255,255,.6); cursor: pointer; padding: 6px; border-radius: 6px; display: flex; }
+  #toggle-btn:hover { background: rgba(255,255,255,.1); color: #fff; }
+  #logo { width: 32px; height: 32px; background: rgba(255,255,255,.1); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  #header-text h1 { font-size: 14px; font-weight: 700; letter-spacing: .04em; }
+  #header-text p { font-size: 11px; color: var(--light); margin-top: 1px; }
+  #header-badge { margin-left: auto; background: rgba(255,255,255,.1); color: var(--light); font-size: 11px; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+
+  /* Messages */
+  #messages { flex: 1; overflow-y: auto; padding: 24px 16px; }
+  #messages-inner { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+
+  /* Welcome screen */
+  #welcome { text-align: center; padding: 40px 0; }
+  #welcome .icon { width: 64px; height: 64px; background: var(--navy); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; box-shadow: 0 4px 20px rgba(15,43,78,.3); }
+  #welcome h2 { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  #welcome p { font-size: 13px; color: var(--muted); max-width: 420px; margin: 0 auto 28px; line-height: 1.6; }
+  #suggestions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 640px; margin: 0 auto; }
+  .sugg-btn {
+    background: var(--white); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; font-size: 12px; color: var(--text); cursor: pointer;
+    text-align: left; line-height: 1.5; font-family: inherit;
+    transition: border-color .15s, background .15s;
+  }
+  .sugg-btn:hover { border-color: var(--navy); background: #EFF6FF; color: var(--navy); }
+
+  /* Message bubbles */
+  .msg { display: flex; gap: 10px; align-items: flex-start; }
+  .msg.user { flex-direction: row-reverse; }
+  .avatar {
+    width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0;
+  }
+  .avatar.ai { background: var(--navy); color: var(--light); }
+  .avatar.user { background: #DBEAFE; color: #1D4ED8; }
+  .bubble-wrap { max-width: 80%; display: flex; flex-direction: column; gap: 6px; }
+  .msg.user .bubble-wrap { align-items: flex-end; }
+  .bubble {
+    padding: 10px 14px; border-radius: 14px; font-size: 13px; line-height: 1.65;
+  }
+  .bubble.ai { background: var(--white); border: 1px solid var(--border); border-radius: 4px 14px 14px 14px; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+  .bubble.user { background: var(--navy); color: #fff; border-radius: 14px 4px 14px 14px; }
+  .bubble p { margin-bottom: 6px; }
+  .bubble p:last-child { margin-bottom: 0; }
+  .bubble ul, .bubble ol { padding-left: 18px; margin: 4px 0; }
+  .bubble li { margin-bottom: 3px; }
+  .bubble strong { font-weight: 600; }
+
+  /* Sources */
+  .sources { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+  .src-label { font-size: 11px; color: var(--hint); }
+  .src-btn {
+    font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 4px;
+    background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE;
+    cursor: pointer; font-family: inherit; transition: all .1s;
+  }
+  .src-btn:hover, .src-btn.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .src-panel {
+    background: #F8FAFC; border: 1px solid #BFDBFE; border-left: 3px solid #3B82F6;
+    border-radius: 8px; padding: 10px 12px; font-size: 12px; color: var(--muted);
+    line-height: 1.6; white-space: pre-wrap; max-height: 180px; overflow-y: auto;
+  }
+  .src-panel-title { font-size: 11px; font-weight: 600; color: #1D4ED8; margin-bottom: 5px; }
+
+  /* Model badge */
+  .model-badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+  .model-badge.fast     { background: #DCFCE7; color: #166534; }
+  .model-badge.balanced { background: #DBEAFE; color: #1D4ED8; }
+  .model-badge.powerful { background: #F3E8FF; color: #7C3AED; }
+
+  /* Thinking */
+  .thinking { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--white); border: 1px solid var(--border); border-radius: 4px 14px 14px 14px; box-shadow: 0 1px 4px rgba(0,0,0,.05); width: fit-content; }
+  .dots { display: flex; gap: 4px; }
+  .dot { width: 7px; height: 7px; background: #93C5FD; border-radius: 50%; animation: bounce .9s infinite; }
+  .dot:nth-child(2) { animation-delay: .15s; }
+  .dot:nth-child(3) { animation-delay: .3s; }
+  @keyframes bounce { 0%,80%,100%{transform:scale(.7);opacity:.4} 40%{transform:scale(1.1);opacity:1} }
+  .thinking-text { font-size: 12px; color: var(--hint); }
+
+  /* Input */
+  #input-area { border-top: 1px solid var(--border); background: var(--white); padding: 12px 16px; flex-shrink: 0; }
+  #input-inner { max-width: 720px; margin: 0 auto; display: flex; gap: 10px; }
+  #qinput {
+    flex: 1; border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 14px; font-size: 13px; font-family: inherit;
+    resize: none; min-height: 44px; max-height: 120px; line-height: 1.5;
+    outline: none; transition: border-color .15s;
+    background: var(--bg); color: var(--text);
+  }
+  #qinput:focus { border-color: var(--navy); box-shadow: 0 0 0 3px rgba(30,58,95,.08); }
+  #send-btn {
+    background: var(--navy); color: #fff; border: none; border-radius: 10px;
+    padding: 10px 20px; font-size: 13px; font-weight: 600; cursor: pointer;
+    font-family: inherit; flex-shrink: 0; transition: background .15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  #send-btn:hover:not(:disabled) { background: var(--blue); }
+  #send-btn:disabled { opacity: .4; cursor: not-allowed; }
+  #disclaimer { font-size: 11px; color: var(--hint); text-align: center; margin-top: 6px; max-width: 720px; margin-left: auto; margin-right: auto; }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    #suggestions { grid-template-columns: 1fr; }
+    #sidebar { position: absolute; z-index: 10; height: 100%; }
+    .bubble-wrap { max-width: 90%; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div id="sidebar-inner">
+      <div id="sidebar-header">
+        <div class="label">Database POJK</div>
+        <div class="count" id="pojk-count">Memuat...</div>
+      </div>
+      <div id="pojk-list">
+        <div id="pojk-empty" style="display:none">
+          Belum ada POJK yang diupload.<br>Gunakan script upload-pojk.js untuk menambahkan.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+
+    <!-- Header -->
+    <div id="header">
+      <button id="toggle-btn" onclick="toggleSidebar()" title="Daftar POJK">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <div id="logo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/>
+        </svg>
+      </div>
+      <div id="header-text">
+        <h1>POJK Konsultan</h1>
+        <p>Konsultasi regulasi berbasis teks asli POJK</p>
+      </div>
+      <div id="header-badge" style="display:none"></div>
+    </div>
+
+    <!-- Messages -->
+    <div id="messages">
+      <div id="messages-inner">
+        <!-- Welcome -->
+        <div id="welcome">
+          <div class="icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="1.8" stroke-linecap="round">
+              <circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/>
+            </svg>
+          </div>
+          <h2>Selamat Datang di POJK Konsultan</h2>
+          <p>Tanyakan apa saja tentang regulasi OJK. Setiap jawaban disertai referensi pasal dari teks POJK asli.</p>
+          <div id="suggestions">
+            <button class="sugg-btn" onclick="sendMessage(this.textContent)">Apa saja kewajiban CDD yang harus dilakukan PJK?</button>
+            <button class="sugg-btn" onclick="sendMessage(this.textContent)">Bagaimana prosedur pemblokiran rekening terkait DTTOT?</button>
+            <button class="sugg-btn" onclick="sendMessage(this.textContent)">Berapa sanksi denda maksimal untuk pelanggaran APU-PPT?</button>
+            <button class="sugg-btn" onclick="sendMessage(this.textContent)">Apa kriteria nasabah yang dikategorikan berisiko tinggi?</button>
+            <button class="sugg-btn" onclick="sendMessage(this.textContent)">Bagaimana kewajiban pelatihan APU-PPT untuk pegawai?</button>
+            <button class="sugg-btn" onclick="sendMessage(this.textContent)">Apa yang dimaksud EDD dan kapan wajib diterapkan?</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div id="input-area">
+      <div id="input-inner">
+        <textarea id="qinput"
+          placeholder="Tanyakan tentang regulasi POJK... (Enter untuk kirim, Shift+Enter untuk baris baru)"
+          rows="1"
+          onkeydown="handleKey(event)"
+          oninput="autoResize(this)"
+        ></textarea>
+        <button id="send-btn" onclick="sendMessage()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+          Kirim
+        </button>
+      </div>
+      <p id="disclaimer">Jawaban berdasarkan teks asli POJK yang tersedia. Untuk keputusan resmi, selalu konfirmasi dengan tim pengawas OJK.</p>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────
+const state = {
+  messages: [],       // riwayat chat
+  loading: false,
+  sidebarOpen: true,
+  openSourceId: null, // source panel yang sedang terbuka
+}
+
+// ── Init ──────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  loadPojkList()
+  document.getElementById('qinput').focus()
+})
+
+// ── Sidebar ───────────────────────────────────────────────
+function toggleSidebar() {
+  state.sidebarOpen = !state.sidebarOpen
+  document.getElementById('sidebar').classList.toggle('collapsed', !state.sidebarOpen)
+}
+
+async function loadPojkList() {
+  try {
+    const res = await fetch('/api/pojk-list')
+    const data = await res.json()
+    const list = data.pojk || []
+
+    document.getElementById('pojk-count').textContent =
+      list.length > 0 ? `${list.length} peraturan tersedia` : 'Belum ada peraturan'
+
+    const container = document.getElementById('pojk-list')
+    const empty = document.getElementById('pojk-empty')
+
+    if (list.length === 0) {
+      empty.style.display = 'block'
+    } else {
+      empty.style.display = 'none'
+      list.forEach(p => {
+        const div = document.createElement('div')
+        div.className = 'pojk-item'
+        div.innerHTML = `<div class="name">${escHtml(p.nama)}</div><div class="meta">${p.tahun} · ${p.jumlah_pasal} pasal</div>`
+        container.appendChild(div)
+      })
+
+      // Update badge di header
+      const badge = document.getElementById('header-badge')
+      badge.textContent = `${list.length} POJK aktif`
+      badge.style.display = 'block'
+    }
+  } catch (e) {
+    document.getElementById('pojk-count').textContent = 'Gagal memuat'
+  }
+}
+
+// ── Input handlers ────────────────────────────────────────
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault()
+    sendMessage()
+  }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto'
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+}
+
+// ── Send message ──────────────────────────────────────────
+async function sendMessage(text) {
+  const input = document.getElementById('qinput')
+  const query = text || input.value.trim()
+  if (!query || state.loading) return
+
+  // Hide welcome
+  const welcome = document.getElementById('welcome')
+  if (welcome) welcome.style.display = 'none'
+
+  input.value = ''
+  input.style.height = '44px'
+  state.loading = true
+  document.getElementById('send-btn').disabled = true
+
+  // Add user message
+  const userMsg = { role: 'user', content: query }
+  state.messages.push(userMsg)
+  renderMessage(userMsg)
+
+  // Show thinking
+  const thinkingEl = showThinking()
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query,
+        messages: state.messages.slice(-8).map(m => ({ role: m.role, content: m.content })),
+      }),
+    })
+
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Terjadi kesalahan')
+
+    const aiMsg = {
+      role: 'assistant',
+      content: data.content,
+      sources: data.sources || [],
+      model: data.model,
+      tier: data.tier,
+    }
+    state.messages.push(aiMsg)
+    thinkingEl.remove()
+    renderMessage(aiMsg)
+
+  } catch (err) {
+    thinkingEl.remove()
+    const errMsg = { role: 'assistant', content: `Maaf, terjadi kesalahan: ${err.message}. Silakan coba lagi.`, sources: [] }
+    state.messages.push(errMsg)
+    renderMessage(errMsg)
+  }
+
+  state.loading = false
+  document.getElementById('send-btn').disabled = false
+  input.focus()
+  scrollBottom()
+}
+
+// ── Render message ────────────────────────────────────────
+function renderMessage(msg) {
+  const container = document.getElementById('messages-inner')
+  const isUser = msg.role === 'user'
+
+  const wrap = document.createElement('div')
+  wrap.className = `msg ${isUser ? 'user' : ''}`
+
+  const avatar = document.createElement('div')
+  avatar.className = `avatar ${isUser ? 'user' : 'ai'}`
+  avatar.textContent = isUser ? 'K' : 'AI'
+
+  const bwrap = document.createElement('div')
+  bwrap.className = 'bubble-wrap'
+
+  const bubble = document.createElement('div')
+  bubble.className = `bubble ${isUser ? 'user' : 'ai'}`
+  bubble.innerHTML = formatText(msg.content)
+  bwrap.appendChild(bubble)
+
+  // Sources (AI only)
+  if (!isUser && msg.sources && msg.sources.length > 0) {
+    const srcRow = document.createElement('div')
+    srcRow.className = 'sources'
+    const lbl = document.createElement('span')
+    lbl.className = 'src-label'
+    lbl.textContent = 'Referensi:'
+    srcRow.appendChild(lbl)
+
+    msg.sources.forEach(src => {
+      const btn = document.createElement('button')
+      btn.className = 'src-btn'
+      btn.textContent = `${src.pasal} · ${src.source}`
+      btn.onclick = () => toggleSourcePanel(btn, src, bwrap)
+      srcRow.appendChild(btn)
+    })
+    bwrap.appendChild(srcRow)
+  }
+
+  // Model badge (AI only)
+  if (!isUser && msg.tier) {
+    const tierLabel = { fast: 'Cepat', balanced: 'Seimbang', powerful: 'Lengkap' }
+    const badge = document.createElement('span')
+    badge.className = `model-badge ${msg.tier}`
+    const modelName = msg.model ? msg.model.split('/').pop() : ''
+    badge.textContent = `${tierLabel[msg.tier] || msg.tier}${modelName ? ' · ' + modelName : ''}`
+    bwrap.appendChild(badge)
+  }
+
+  wrap.appendChild(avatar)
+  wrap.appendChild(bwrap)
+  container.appendChild(wrap)
+  scrollBottom()
+}
+
+function toggleSourcePanel(btn, src, container) {
+  const existingPanel = container.querySelector(`.src-panel[data-id="${src.id}"]`)
+  if (existingPanel) {
+    existingPanel.remove()
+    btn.classList.remove('active')
+    return
+  }
+  // Tutup panel lain di bubble yang sama
+  container.querySelectorAll('.src-panel').forEach(p => p.remove())
+  container.querySelectorAll('.src-btn').forEach(b => b.classList.remove('active'))
+
+  const panel = document.createElement('div')
+  panel.className = 'src-panel'
+  panel.setAttribute('data-id', src.id)
+
+  const title = document.createElement('div')
+  title.className = 'src-panel-title'
+  title.textContent = `${src.pasal} · ${src.bab || ''} · ${src.source}`
+
+  const body = document.createElement('div')
+  body.textContent = src.preview
+
+  panel.appendChild(title)
+  panel.appendChild(body)
+  btn.after(panel)
+  btn.classList.add('active')
+}
+
+// ── Thinking indicator ────────────────────────────────────
+function showThinking() {
+  const container = document.getElementById('messages-inner')
+  const wrap = document.createElement('div')
+  wrap.className = 'msg'
+  wrap.innerHTML = `
+    <div class="avatar ai">AI</div>
+    <div class="thinking">
+      <div class="dots">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+      <span class="thinking-text">Mencari pasal relevan...</span>
+    </div>`
+  container.appendChild(wrap)
+  scrollBottom()
+  return wrap
+}
+
+// ── Helpers ───────────────────────────────────────────────
+function scrollBottom() {
+  const el = document.getElementById('messages')
+  el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+}
+
+function formatText(text) {
+  if (!text) return ''
+  return escHtml(text)
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n- /g, '</p><ul><li>').replace(/\n/g, '<br>')
+    .replace(/^/, '<p>').replace(/$/, '</p>')
+}
+</script>
+</body>
+</html>
