@@ -5,183 +5,1074 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CORE — Comprehensive Oversight Regulatory Explorer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Serif+Display&display=swap" rel="stylesheet">
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --navy: #0F2B4E;
-    --blue: #1E3A5F;
-    --light: #93C5FD;
-    --bg: #F8FAFC;
-    --white: #FFFFFF;
-    --border: #E2E8F0;
-    --text: #1E293B;
-    --muted: #64748B;
-    --hint: #94A3B8;
-  }
-  html, body { height: 100%; font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); }
-  ::-webkit-scrollbar { width: 5px; }
-  ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  /* Layout */
-  #app { display: flex; height: 100vh; overflow: hidden; }
+:root {
+  --ink:    #0B1120;
+  --ink-2:  #131D30;
+  --ink-3:  #1A2640;
+  --panel:  #0F1A2E;
+  --line:   rgba(255,255,255,.07);
+  --line-2: rgba(255,255,255,.12);
+  --gold:   #C9A84C;
+  --gold-2: #E8C87A;
+  --gold-dim: rgba(201,168,76,.15);
+  --sky:    #5B8EDB;
+  --sky-dim: rgba(91,142,219,.12);
+  --white:  #FFFFFF;
+  --dim:    rgba(255,255,255,.45);
+  --dimmer: rgba(255,255,255,.22);
+  --err:    #E85555;
+  --green:  #4CAF7D;
+  --radius: 10px;
+  --font-mono: 'Space Mono', monospace;
+  --font-body: 'DM Sans', sans-serif;
+  --font-serif: 'DM Serif Display', serif;
+}
 
-  /* Sidebar */
-  #sidebar {
-    width: 260px; flex-shrink: 0; background: var(--navy); color: #fff;
-    display: flex; flex-direction: column; transition: width .25s;
-    overflow: hidden;
-  }
-  #sidebar.collapsed { width: 0; }
-  #sidebar-inner { width: 260px; height: 100%; display: flex; flex-direction: column; }
-  #sidebar-header { padding: 16px; border-bottom: 1px solid rgba(255,255,255,.1); }
-  #sidebar-header .label { font-size: 10px; font-weight: 600; color: var(--light); text-transform: uppercase; letter-spacing: .08em; }
-  #sidebar-header .count { font-size: 11px; color: rgba(255,255,255,.4); margin-top: 2px; }
-  #pojk-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
-  .pojk-item { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 10px 12px; }
-  .pojk-item .name { font-size: 12px; font-weight: 500; color: #fff; line-height: 1.4; }
-  .pojk-item .meta { font-size: 11px; color: rgba(255,255,255,.35); margin-top: 3px; }
-  #pojk-empty { font-size: 12px; color: rgba(255,255,255,.3); text-align: center; padding: 32px 16px; line-height: 1.6; }
+html, body { height: 100%; background: var(--ink); color: var(--white); font-family: var(--font-body); font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 4px; }
 
-  /* Main */
-  #main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+/* ═══════════════════════════════════════════════
+   VIEWS
+═══════════════════════════════════════════════ */
+.view { display: none; height: 100vh; }
+.view.active { display: flex; }
 
-  /* Header */
-  #header {
-    background: var(--navy); color: #fff; padding: 0 16px;
-    display: flex; align-items: center; gap: 12px; height: 56px; flex-shrink: 0;
-    box-shadow: 0 1px 8px rgba(0,0,0,.2);
-  }
-  #toggle-btn { background: none; border: none; color: rgba(255,255,255,.6); cursor: pointer; padding: 6px; border-radius: 6px; display: flex; }
-  #toggle-btn:hover { background: rgba(255,255,255,.1); color: #fff; }
-  #logo { width: 32px; height: 32px; background: rgba(255,255,255,.1); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  #header-text h1 { font-size: 14px; font-weight: 700; letter-spacing: .04em; }
-  #header-text p { font-size: 11px; color: var(--light); margin-top: 1px; }
-  #header-badge { margin-left: auto; background: rgba(255,255,255,.1); color: var(--light); font-size: 11px; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+/* ═══════════════════════════════════════════════
+   LOGIN PAGE
+═══════════════════════════════════════════════ */
+#view-login {
+  align-items: center; justify-content: center;
+  background: var(--ink);
+  position: relative; overflow: hidden;
+}
 
-  /* Messages */
-  #messages { flex: 1; overflow-y: auto; padding: 24px 16px; }
-  #messages-inner { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+/* Grid background */
+#view-login::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(91,142,219,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(91,142,219,.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
 
-  /* Welcome screen */
-  #welcome { text-align: center; padding: 40px 0; }
-  #welcome .icon { width: 64px; height: 64px; background: var(--navy); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; box-shadow: 0 4px 20px rgba(15,43,78,.3); }
-  #welcome h2 { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
-  #welcome p { font-size: 13px; color: var(--muted); max-width: 420px; margin: 0 auto 28px; line-height: 1.6; }
-  #suggestions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 640px; margin: 0 auto; }
-  .sugg-btn {
-    background: var(--white); border: 1px solid var(--border); border-radius: 10px;
-    padding: 12px 14px; font-size: 12px; color: var(--text); cursor: pointer;
-    text-align: left; line-height: 1.5; font-family: inherit;
-    transition: border-color .15s, background .15s;
-  }
-  .sugg-btn:hover { border-color: var(--navy); background: #EFF6FF; color: var(--navy); }
+/* Glow orbs */
+#view-login::after {
+  content: '';
+  position: absolute;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(201,168,76,.06) 0%, transparent 70%);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -60%);
+  pointer-events: none;
+}
 
-  /* Message bubbles */
-  .msg { display: flex; gap: 10px; align-items: flex-start; }
-  .msg.user { flex-direction: row-reverse; }
-  .avatar {
-    width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center;
-    justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0;
-  }
-  .avatar.ai { background: var(--navy); color: var(--light); }
-  .avatar.user { background: #DBEAFE; color: #1D4ED8; }
-  .bubble-wrap { max-width: 80%; display: flex; flex-direction: column; gap: 6px; }
-  .msg.user .bubble-wrap { align-items: flex-end; }
-  .bubble {
-    padding: 10px 14px; border-radius: 14px; font-size: 13px; line-height: 1.65;
-  }
-  .bubble.ai { background: var(--white); border: 1px solid var(--border); border-radius: 4px 14px 14px 14px; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
-  .bubble.user { background: var(--navy); color: #fff; border-radius: 14px 4px 14px 14px; }
-  .bubble p { margin-bottom: 6px; }
-  .bubble p:last-child { margin-bottom: 0; }
-  .bubble ul, .bubble ol { padding-left: 18px; margin: 4px 0; }
-  .bubble li { margin-bottom: 3px; }
-  .bubble strong { font-weight: 600; }
+.login-card {
+  position: relative; z-index: 1;
+  width: 420px;
+  background: var(--ink-2);
+  border: 1px solid var(--line-2);
+  border-radius: 16px;
+  padding: 44px 40px;
+  box-shadow: 0 32px 80px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.04) inset;
+}
 
-  /* Sources */
-  .sources { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
-  .src-label { font-size: 11px; color: var(--hint); }
-  .src-btn {
-    font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 4px;
-    background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE;
-    cursor: pointer; font-family: inherit; transition: all .1s;
-  }
-  .src-btn:hover, .src-btn.active { background: var(--navy); color: #fff; border-color: var(--navy); }
-  .src-panel {
-    background: #F8FAFC; border: 1px solid #BFDBFE; border-left: 3px solid #3B82F6;
-    border-radius: 8px; padding: 10px 12px; font-size: 12px; color: var(--muted);
-    line-height: 1.6; white-space: pre-wrap; max-height: 180px; overflow-y: auto;
-  }
-  .src-panel-title { font-size: 11px; font-weight: 600; color: #1D4ED8; margin-bottom: 5px; }
+.login-brand {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 36px;
+}
 
-  /* Model badge */
-  .model-badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
-  .model-badge.fast     { background: #DCFCE7; color: #166534; }
-  .model-badge.balanced { background: #DBEAFE; color: #1D4ED8; }
-  .model-badge.powerful { background: #F3E8FF; color: #7C3AED; }
+.login-logo {
+  width: 44px; height: 44px;
+  background: linear-gradient(135deg, var(--gold) 0%, #9B7B30 100%);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
 
-  /* Thinking */
-  .thinking { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--white); border: 1px solid var(--border); border-radius: 4px 14px 14px 14px; box-shadow: 0 1px 4px rgba(0,0,0,.05); width: fit-content; }
-  .dots { display: flex; gap: 4px; }
-  .dot { width: 7px; height: 7px; background: #93C5FD; border-radius: 50%; animation: bounce .9s infinite; }
-  .dot:nth-child(2) { animation-delay: .15s; }
-  .dot:nth-child(3) { animation-delay: .3s; }
-  @keyframes bounce { 0%,80%,100%{transform:scale(.7);opacity:.4} 40%{transform:scale(1.1);opacity:1} }
-  .thinking-text { font-size: 12px; color: var(--hint); }
+.login-brand-text h1 {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--white);
+}
+.login-brand-text p {
+  font-size: 11px;
+  color: var(--dimmer);
+  margin-top: 1px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
 
-  /* Input */
-  #input-area { border-top: 1px solid var(--border); background: var(--white); padding: 12px 16px; flex-shrink: 0; }
-  #input-inner { max-width: 720px; margin: 0 auto; display: flex; gap: 10px; }
-  #qinput {
-    flex: 1; border: 1px solid var(--border); border-radius: 10px;
-    padding: 10px 14px; font-size: 13px; font-family: inherit;
-    resize: none; min-height: 44px; max-height: 120px; line-height: 1.5;
-    outline: none; transition: border-color .15s;
-    background: var(--bg); color: var(--text);
-  }
-  #qinput:focus { border-color: var(--navy); box-shadow: 0 0 0 3px rgba(30,58,95,.08); }
-  #send-btn {
-    background: var(--navy); color: #fff; border: none; border-radius: 10px;
-    padding: 10px 20px; font-size: 13px; font-weight: 600; cursor: pointer;
-    font-family: inherit; flex-shrink: 0; transition: background .15s;
-    display: flex; align-items: center; gap: 6px;
-  }
-  #send-btn:hover:not(:disabled) { background: var(--blue); }
-  #send-btn:disabled { opacity: .4; cursor: not-allowed; }
-  #disclaimer { font-size: 11px; color: var(--hint); text-align: center; margin-top: 6px; max-width: 720px; margin-left: auto; margin-right: auto; }
+.login-divider {
+  height: 1px;
+  background: var(--line);
+  margin-bottom: 28px;
+}
 
-  /* Responsive */
-  /* File upload */
-  #attach-btn { background:none; border:none; cursor:pointer; padding:6px; border-radius:8px; color:var(--muted); display:flex; align-items:center; transition:all .15s; flex-shrink:0; }
-  #attach-btn:hover { background:var(--border); color:var(--navy); }
-  #file-preview { display:none; background:#EFF6FF; border:1px solid #BFDBFE; border-radius:8px; padding:8px 12px; margin-bottom:8px; align-items:center; gap:10px; }
-  #file-preview .file-name { font-size:12px; font-weight:500; color:#1D4ED8; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  #file-preview .file-size { font-size:11px; color:#64748B; white-space:nowrap; }
-  #file-preview .file-remove { background:none; border:none; cursor:pointer; color:#94A3B8; font-size:16px; padding:0 4px; line-height:1; }
-  #file-preview .file-remove:hover { color:#EF4444; }
-  .msg-file { background:#EFF6FF; border:1px solid #BFDBFE; border-radius:8px; padding:8px 12px; font-size:12px; color:#1D4ED8; margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+.login-field {
+  margin-bottom: 16px;
+}
+.login-field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--dimmer);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin-bottom: 7px;
+}
+.login-field input {
+  width: 100%;
+  background: var(--ink);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 8px;
+  padding: 11px 14px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  color: var(--white);
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.login-field input::placeholder { color: var(--dimmer); }
+.login-field input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold-dim);
+}
 
-  @media (max-width: 600px) {
-    #suggestions { grid-template-columns: 1fr; }
-    #sidebar { position: absolute; z-index: 10; height: 100%; }
-    .bubble-wrap { max-width: 90%; }
-  }
+#login-error {
+  display: none;
+  background: rgba(232,85,85,.12);
+  border: 1px solid rgba(232,85,85,.3);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 12px;
+  color: #F08080;
+  margin-bottom: 16px;
+}
+
+.btn-gold {
+  width: 100%;
+  background: linear-gradient(135deg, var(--gold) 0%, #9B7B30 100%);
+  color: var(--ink);
+  border: none;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-body);
+  letter-spacing: .03em;
+  cursor: pointer;
+  transition: opacity .15s, transform .1s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-gold:hover { opacity: .9; }
+.btn-gold:active { transform: scale(.99); }
+.btn-gold:disabled { opacity: .4; cursor: not-allowed; }
+
+.login-sep {
+  display: flex; align-items: center; gap: 12px;
+  margin: 20px 0;
+}
+.login-sep::before, .login-sep::after {
+  content: ''; flex: 1; height: 1px; background: var(--line);
+}
+.login-sep span { font-size: 11px; color: var(--dimmer); white-space: nowrap; }
+
+.btn-ghost {
+  width: 100%;
+  background: rgba(255,255,255,.05);
+  color: var(--dim);
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-ghost:hover { background: rgba(255,255,255,.09); color: var(--white); }
+
+.login-footer {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--dimmer);
+  line-height: 1.7;
+}
+.login-footer strong { color: rgba(255,255,255,.5); font-weight: 500; }
+
+/* ═══════════════════════════════════════════════
+   APP VIEW (CHAT + ADMIN)
+═══════════════════════════════════════════════ */
+#view-app {
+  flex-direction: row;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Sidebar ── */
+#sidebar {
+  width: 268px;
+  flex-shrink: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  transition: width .22s cubic-bezier(.4,0,.2,1);
+  overflow: hidden;
+}
+#sidebar.collapsed { width: 0; }
+#sidebar-inner { width: 268px; height: 100%; display: flex; flex-direction: column; }
+
+.sidebar-top {
+  padding: 14px 14px 0;
+  flex-shrink: 0;
+}
+.sidebar-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 6px 12px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 8px;
+}
+.sidebar-logo {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, var(--gold) 0%, #9B7B30 100%);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.sidebar-brand-name {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: .06em;
+}
+
+.sidebar-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--dimmer);
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  padding: 0 6px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+#pojk-count-badge {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  background: var(--gold-dim);
+  color: var(--gold);
+  padding: 1px 6px;
+  border-radius: 20px;
+  font-weight: 400;
+}
+
+#pojk-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pojk-item {
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 11px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.pojk-item:hover {
+  background: rgba(255,255,255,.07);
+  border-color: var(--line-2);
+}
+.pojk-item .pi-name {
+  font-size: 12px;
+  color: var(--white);
+  line-height: 1.4;
+  font-weight: 400;
+}
+.pojk-item .pi-meta {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--dimmer);
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pojk-item .pi-tag {
+  background: var(--sky-dim);
+  color: var(--sky);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+}
+
+#pojk-empty {
+  font-size: 12px;
+  color: var(--dimmer);
+  text-align: center;
+  padding: 24px 12px;
+  line-height: 1.7;
+  padding: 32px 16px;
+}
+
+/* Sidebar bottom user panel */
+.sidebar-user {
+  border-top: 1px solid var(--line);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.user-avatar {
+  width: 30px; height: 30px;
+  background: var(--gold-dim);
+  border: 1px solid rgba(201,168,76,.3);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gold);
+  flex-shrink: 0;
+}
+.user-info { flex: 1; min-width: 0; }
+.user-name { font-size: 12px; font-weight: 600; color: var(--white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-role { font-size: 10px; color: var(--dimmer); text-transform: uppercase; letter-spacing: .05em; }
+.user-actions { display: flex; gap: 4px; }
+.user-action-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--dimmer); padding: 5px; border-radius: 6px;
+  transition: background .15s, color .15s;
+  display: flex;
+}
+.user-action-btn:hover { background: var(--line-2); color: var(--white); }
+.user-action-btn.active { color: var(--gold); }
+
+/* ── Main area ── */
+#main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--ink);
+}
+
+/* ── Header bar ── */
+#topbar {
+  height: 52px;
+  background: var(--ink-2);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  flex-shrink: 0;
+}
+#toggle-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--dim); padding: 6px; border-radius: 7px;
+  display: flex; transition: background .15s, color .15s;
+}
+#toggle-btn:hover { background: var(--line-2); color: var(--white); }
+
+.topbar-title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--dimmer);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.topbar-title span { color: var(--gold); }
+
+#topbar-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.topbar-badge {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--dimmer);
+  background: rgba(255,255,255,.05);
+  border: 1px solid var(--line);
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.topbar-btn {
+  background: rgba(255,255,255,.06);
+  border: 1px solid var(--line-2);
+  border-radius: 7px;
+  color: var(--dim);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all .15s;
+  display: flex; align-items: center; gap: 6px;
+  white-space: nowrap;
+}
+.topbar-btn:hover { background: rgba(255,255,255,.1); color: var(--white); }
+.topbar-btn.danger:hover { background: rgba(232,85,85,.1); color: #F08080; border-color: rgba(232,85,85,.3); }
+
+/* ═══════════════════════════════════════════════
+   CHAT PANEL
+═══════════════════════════════════════════════ */
+#chat-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+#messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 20px;
+}
+#messages-inner {
+  max-width: 740px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Welcome */
+#welcome {
+  padding: 40px 20px;
+  text-align: center;
+  max-width: 560px;
+  margin: 0 auto;
+}
+.welcome-icon {
+  width: 68px; height: 68px;
+  background: var(--ink-2);
+  border: 1px solid var(--line-2);
+  border-radius: 18px;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px;
+  box-shadow: 0 0 40px rgba(201,168,76,.08);
+}
+#welcome h2 {
+  font-family: var(--font-serif);
+  font-size: 26px;
+  color: var(--white);
+  margin-bottom: 10px;
+  font-weight: 400;
+  letter-spacing: .01em;
+}
+#welcome p {
+  font-size: 13px;
+  color: var(--dim);
+  line-height: 1.7;
+  margin-bottom: 30px;
+}
+#suggestions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  text-align: left;
+}
+.sugg-btn {
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 12px;
+  font-family: var(--font-body);
+  color: var(--dim);
+  cursor: pointer;
+  text-align: left;
+  line-height: 1.5;
+  transition: all .15s;
+}
+.sugg-btn:hover {
+  background: var(--ink-3);
+  border-color: var(--line-2);
+  color: var(--white);
+}
+
+/* Messages */
+.msg { display: flex; gap: 10px; align-items: flex-start; }
+.msg.user { flex-direction: row-reverse; }
+
+.avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+}
+.avatar.ai {
+  background: var(--gold-dim);
+  border: 1px solid rgba(201,168,76,.25);
+  color: var(--gold);
+}
+.avatar.user {
+  background: var(--sky-dim);
+  border: 1px solid rgba(91,142,219,.25);
+  color: var(--sky);
+}
+
+.bubble-wrap { max-width: 82%; display: flex; flex-direction: column; gap: 6px; }
+.msg.user .bubble-wrap { align-items: flex-end; }
+
+.bubble {
+  padding: 11px 15px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.bubble.ai {
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: 4px 14px 14px 14px;
+}
+.bubble.user {
+  background: var(--ink-3);
+  border: 1px solid var(--line-2);
+  border-radius: 14px 4px 14px 14px;
+}
+.bubble p { margin-bottom: 7px; }
+.bubble p:last-child { margin-bottom: 0; }
+.bubble ul, .bubble ol { padding-left: 18px; margin: 4px 0; }
+.bubble li { margin-bottom: 3px; }
+.bubble strong { font-weight: 600; color: var(--white); }
+
+/* Sources */
+.sources { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.src-label { font-size: 10px; color: var(--dimmer); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .06em; }
+.src-btn {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--gold-dim);
+  color: var(--gold);
+  border: 1px solid rgba(201,168,76,.2);
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: all .12s;
+}
+.src-btn:hover, .src-btn.active {
+  background: var(--gold);
+  color: var(--ink);
+}
+
+.src-panel {
+  background: var(--ink-3);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--gold);
+  border-radius: 8px;
+  padding: 10px 13px;
+  font-size: 12px;
+  color: var(--dim);
+  line-height: 1.65;
+  white-space: pre-wrap;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.src-panel-title {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--gold);
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+/* Model badge */
+.model-badge {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-weight: 400;
+  letter-spacing: .04em;
+}
+.model-badge.fast     { background: rgba(76,175,125,.12); color: #4CAF7D; border: 1px solid rgba(76,175,125,.2); }
+.model-badge.balanced { background: var(--sky-dim);       color: var(--sky); border: 1px solid rgba(91,142,219,.2); }
+.model-badge.powerful { background: var(--gold-dim);      color: var(--gold); border: 1px solid rgba(201,168,76,.2); }
+
+/* Thinking */
+.thinking {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 15px;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: 4px 14px 14px 14px;
+  width: fit-content;
+}
+.dots { display: flex; gap: 4px; }
+.dot {
+  width: 6px; height: 6px;
+  background: var(--gold);
+  border-radius: 50%;
+  animation: pulse .9s infinite;
+  opacity: .5;
+}
+.dot:nth-child(2) { animation-delay: .18s; }
+.dot:nth-child(3) { animation-delay: .36s; }
+@keyframes pulse { 0%,80%,100%{transform:scale(.7);opacity:.3} 40%{transform:scale(1);opacity:1} }
+.thinking-text { font-size: 12px; color: var(--dimmer); font-family: var(--font-mono); }
+
+/* ── Input area ── */
+#input-area {
+  border-top: 1px solid var(--line);
+  background: var(--ink-2);
+  padding: 12px 16px 14px;
+  flex-shrink: 0;
+}
+#input-inner {
+  max-width: 740px;
+  margin: 0 auto;
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+#file-preview {
+  display: none;
+  background: var(--gold-dim);
+  border: 1px solid rgba(201,168,76,.2);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  align-items: center;
+  gap: 10px;
+  max-width: 740px;
+  margin-left: auto; margin-right: auto;
+}
+#file-preview .file-name { font-size: 12px; font-weight: 500; color: var(--gold); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#file-preview .file-size { font-size: 11px; color: var(--dimmer); white-space: nowrap; font-family: var(--font-mono); }
+#file-preview .file-remove { background: none; border: none; cursor: pointer; color: var(--dimmer); font-size: 16px; padding: 0 4px; line-height: 1; transition: color .15s; }
+#file-preview .file-remove:hover { color: var(--err); }
+
+.msg-file {
+  background: var(--gold-dim);
+  border: 1px solid rgba(201,168,76,.2);
+  border-radius: 8px;
+  padding: 7px 11px;
+  font-size: 12px;
+  color: var(--gold);
+  margin-bottom: 6px;
+  display: flex; align-items: center; gap: 8px;
+}
+
+#attach-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--dimmer); padding: 9px 8px;
+  border-radius: 8px; display: flex;
+  transition: all .15s; flex-shrink: 0;
+}
+#attach-btn:hover { background: var(--line-2); color: var(--white); }
+
+#qinput {
+  flex: 1;
+  background: var(--ink);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  color: var(--white);
+  resize: none;
+  min-height: 42px;
+  max-height: 120px;
+  line-height: 1.55;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+#qinput::placeholder { color: var(--dimmer); }
+#qinput:focus { border-color: rgba(201,168,76,.4); box-shadow: 0 0 0 3px var(--gold-dim); }
+
+#send-btn {
+  background: linear-gradient(135deg, var(--gold) 0%, #9B7B30 100%);
+  color: var(--ink);
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-body);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity .15s;
+  display: flex; align-items: center; gap: 6px;
+}
+#send-btn:hover:not(:disabled) { opacity: .88; }
+#send-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+#disclaimer {
+  font-size: 11px;
+  color: var(--dimmer);
+  text-align: center;
+  margin-top: 8px;
+  max-width: 740px;
+  margin-left: auto; margin-right: auto;
+  font-family: var(--font-mono);
+}
+
+/* ═══════════════════════════════════════════════
+   ADMIN PANEL
+═══════════════════════════════════════════════ */
+#admin-panel {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 28px;
+}
+#admin-panel.active { display: flex; }
+
+.admin-title {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  color: var(--white);
+  margin-bottom: 6px;
+  font-weight: 400;
+}
+.admin-subtitle {
+  font-size: 12px;
+  color: var(--dimmer);
+  font-family: var(--font-mono);
+  letter-spacing: .04em;
+  margin-bottom: 28px;
+  text-transform: uppercase;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.admin-card {
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 22px;
+}
+.admin-card-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--dimmer);
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  margin-bottom: 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+.admin-card-title svg { color: var(--gold); }
+
+/* Upload zone */
+#drop-zone {
+  border: 2px dashed rgba(255,255,255,.1);
+  border-radius: 10px;
+  padding: 32px;
+  text-align: center;
+  cursor: pointer;
+  transition: all .15s;
+}
+#drop-zone:hover, #drop-zone.drag-over {
+  border-color: var(--gold);
+  background: var(--gold-dim);
+}
+#drop-zone .dz-icon { font-size: 32px; margin-bottom: 10px; opacity: .5; }
+#drop-zone .dz-text {
+  font-size: 13px; color: var(--dim); line-height: 1.6;
+}
+#drop-zone .dz-hint {
+  font-size: 11px; color: var(--dimmer); margin-top: 4px;
+  font-family: var(--font-mono);
+}
+
+#upload-progress-wrap { display: none; margin-top: 14px; }
+.progress-label { font-size: 11px; color: var(--dimmer); margin-bottom: 6px; display: flex; justify-content: space-between; }
+.progress-bar-bg { background: rgba(255,255,255,.08); border-radius: 4px; height: 6px; overflow: hidden; }
+.progress-bar-fill { background: linear-gradient(90deg, var(--gold), var(--gold-2)); height: 100%; border-radius: 4px; width: 0%; transition: width .3s; }
+#upload-status { font-size: 12px; color: var(--dim); margin-top: 10px; line-height: 1.5; }
+
+/* Admin POJK list */
+#admin-pojk-list { display: flex; flex-direction: column; gap: 8px; }
+.admin-pojk-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 11px 14px;
+  transition: border-color .15s;
+}
+.admin-pojk-row:hover { border-color: var(--line-2); }
+.apl-name {
+  flex: 1;
+  font-size: 12px;
+  color: var(--white);
+  line-height: 1.4;
+  min-width: 0;
+}
+.apl-meta {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--dimmer);
+  white-space: nowrap;
+}
+.apl-actions { display: flex; gap: 5px; }
+.apl-btn {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--dim);
+  padding: 4px 9px;
+  font-size: 11px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.apl-btn:hover { background: var(--line-2); color: var(--white); }
+.apl-btn.del:hover { background: rgba(232,85,85,.1); color: #F08080; border-color: rgba(232,85,85,.3); }
+
+#admin-pojk-empty {
+  font-size: 12px;
+  color: var(--dimmer);
+  text-align: center;
+  padding: 28px 0;
+  font-family: var(--font-mono);
+}
+
+/* Admin stats */
+.stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.stat-box {
+  background: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 14px;
+}
+.stat-val {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--gold);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.stat-label {
+  font-size: 11px;
+  color: var(--dimmer);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+/* Toast */
+#toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--ink-2);
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--white);
+  box-shadow: 0 8px 32px rgba(0,0,0,.4);
+  z-index: 1000;
+  display: flex; align-items: center; gap: 10px;
+  transform: translateY(100px);
+  opacity: 0;
+  transition: all .25s cubic-bezier(.34,1.56,.64,1);
+  pointer-events: none;
+  max-width: 320px;
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+#toast .toast-icon { font-size: 16px; flex-shrink: 0; }
+
+/* Loading spinner */
+.spinner {
+  width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,.2);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Confirm dialog */
+#confirm-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.6);
+  z-index: 500;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(3px);
+}
+#confirm-overlay.show { display: flex; }
+#confirm-dialog {
+  background: var(--ink-2);
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+  padding: 28px;
+  max-width: 340px;
+  width: 90%;
+  box-shadow: 0 24px 60px rgba(0,0,0,.5);
+}
+#confirm-dialog h3 { font-size: 15px; font-weight: 600; color: var(--white); margin-bottom: 8px; }
+#confirm-dialog p { font-size: 13px; color: var(--dim); line-height: 1.6; margin-bottom: 20px; }
+.confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.btn-cancel {
+  background: rgba(255,255,255,.07); border: 1px solid var(--line-2);
+  border-radius: 8px; color: var(--dim); padding: 9px 16px;
+  font-size: 13px; font-family: var(--font-body); cursor: pointer;
+  transition: all .15s;
+}
+.btn-cancel:hover { background: rgba(255,255,255,.1); color: var(--white); }
+.btn-confirm-del {
+  background: rgba(232,85,85,.15); border: 1px solid rgba(232,85,85,.3);
+  border-radius: 8px; color: #F08080; padding: 9px 16px;
+  font-size: 13px; font-weight: 600; font-family: var(--font-body); cursor: pointer;
+  transition: all .15s;
+}
+.btn-confirm-del:hover { background: rgba(232,85,85,.25); }
+
+/* Responsive */
+@media (max-width: 640px) {
+  #suggestions { grid-template-columns: 1fr; }
+  #sidebar { position: absolute; z-index: 10; height: 100%; }
+  .bubble-wrap { max-width: 92%; }
+  .admin-grid { grid-template-columns: 1fr; }
+  .login-card { width: 90%; padding: 32px 24px; }
+}
 </style>
 </head>
 <body>
-<div id="app">
+
+<!-- ═══════════════════════════
+     VIEW: LOGIN
+═══════════════════════════ -->
+<div id="view-login" class="view active">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="login-logo">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(11,17,32,.9)" stroke-width="2.2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/>
+        </svg>
+      </div>
+      <div class="login-brand-text">
+        <h1>CORE</h1>
+        <p>Regulatory Explorer · OJK Internal</p>
+      </div>
+    </div>
+    <div class="login-divider"></div>
+
+    <div id="login-error"></div>
+
+    <div class="login-field">
+      <label>Username</label>
+      <input type="text" id="login-username" placeholder="Masukkan username" autocomplete="username">
+    </div>
+    <div class="login-field" style="margin-bottom:20px;">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="Masukkan password" autocomplete="current-password">
+    </div>
+
+    <button class="btn-gold" id="login-btn" onclick="doLogin()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+      </svg>
+      Masuk sebagai Admin
+    </button>
+
+    <div class="login-sep"><span>atau</span></div>
+
+    <button class="btn-ghost" onclick="loginAsGuest()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+      </svg>
+      Lanjutkan sebagai Guest
+    </button>
+
+    <div class="login-footer">
+      Sistem internal OJK<br>
+      <strong>Direktorat Pengawasan Asuransi &amp; Reasuransi Syariah</strong><br>
+      Dilarang menggunakan di luar lingkup OJK
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════
+     VIEW: APP
+═══════════════════════════ -->
+<div id="view-app" class="view">
 
   <!-- Sidebar -->
   <div id="sidebar">
     <div id="sidebar-inner">
-      <div id="sidebar-header">
-        <div class="label">Database POJK</div>
-        <div class="count" id="pojk-count">Memuat...</div>
+      <div class="sidebar-top">
+        <div class="sidebar-brand">
+          <div class="sidebar-logo">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(11,17,32,.9)" stroke-width="2.5" stroke-linecap="round">
+              <circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/>
+            </svg>
+          </div>
+          <span class="sidebar-brand-name">CORE</span>
+        </div>
+        <div class="sidebar-section-label">
+          Database POJK
+          <span id="pojk-count-badge">—</span>
+        </div>
       </div>
       <div id="pojk-list">
-        <div id="pojk-empty" style="display:none">
-          Belum ada POJK yang diupload.<br>Gunakan script upload-pojk.js untuk menambahkan.
+        <div id="pojk-empty">
+          Belum ada POJK.<br>Upload melalui panel Admin.
+        </div>
+      </div>
+      <div class="sidebar-user">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <div class="user-info">
+          <div class="user-name" id="user-display-name">—</div>
+          <div class="user-role" id="user-display-role">—</div>
+        </div>
+        <div class="user-actions">
+          <button class="user-action-btn" id="admin-toggle-btn" title="Panel Admin" style="display:none" onclick="toggleAdmin()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/>
+            </svg>
+          </button>
+          <button class="user-action-btn" title="Keluar" onclick="doLogout()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </button>
         </div>
       </div>
     </div>
@@ -190,106 +1081,334 @@
   <!-- Main -->
   <div id="main">
 
-    <!-- Header -->
-    <div id="header">
-      <button id="toggle-btn" onclick="toggleSidebar()" title="Daftar POJK">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+    <!-- Topbar -->
+    <div id="topbar">
+      <button id="toggle-btn" onclick="toggleSidebar()" title="Toggle sidebar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
           <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
         </svg>
       </button>
-      <div id="logo">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="2" stroke-linecap="round">
-          <circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/>
-        </svg>
-      </div>
-      <div id="header-text">
-        <h1>CORE</h1>
-        <p>Comprehensive Oversight Regulatory Explorer</p>
-      </div>
-      <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
-        <button id="export-btn" onclick="exportWord()" title="Export percakapan ke Word"
-          style="display:none;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;gap:5px;align-items:center;">
-          ⬇ Export Word
+      <div class="topbar-title" id="topbar-title"><span>CORE</span> &nbsp;/ Regulasi Asuransi</div>
+      <div id="topbar-actions">
+        <div class="topbar-badge" id="topbar-badge" style="display:none"></div>
+        <button class="topbar-btn" id="export-btn" onclick="exportWord()" style="display:none">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Export Word
         </button>
-        <div id="header-badge" style="display:none"></div>
       </div>
     </div>
 
-    <!-- Messages -->
-    <div id="messages">
-      <div id="messages-inner">
-        <!-- Welcome -->
-        <div id="welcome">
-          <div class="icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" stroke-width="1.8" stroke-linecap="round">
-              <circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/>
-            </svg>
-          </div>
-          <h2>Selamat Datang di CORE</h2>
-          <p>Eksplorasi regulasi pengawasan asuransi berbasis AI. Setiap jawaban disertai referensi pasal dari teks POJK asli.</p>
-          <div id="suggestions">
-            <button class="sugg-btn" onclick="sendMessage(this.textContent)">Apa saja kewajiban CDD yang harus dilakukan PJK?</button>
-            <button class="sugg-btn" onclick="sendMessage(this.textContent)">Bagaimana prosedur pemblokiran rekening terkait DTTOT?</button>
-            <button class="sugg-btn" onclick="sendMessage(this.textContent)">Berapa sanksi denda maksimal untuk pelanggaran APU-PPT?</button>
-            <button class="sugg-btn" onclick="sendMessage(this.textContent)">Apa kriteria nasabah yang dikategorikan berisiko tinggi?</button>
-            <button class="sugg-btn" onclick="sendMessage(this.textContent)">Bagaimana kewajiban pelatihan APU-PPT untuk pegawai?</button>
-            <button class="sugg-btn" onclick="sendMessage(this.textContent)">Apa yang dimaksud EDD dan kapan wajib diterapkan?</button>
+    <!-- Chat panel -->
+    <div id="chat-panel">
+      <div id="messages">
+        <div id="messages-inner">
+          <div id="welcome">
+            <div class="welcome-icon">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#C9A84C" stroke-width="1.6" stroke-linecap="round">
+                <circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/>
+              </svg>
+            </div>
+            <h2>Selamat Datang di CORE</h2>
+            <p>Eksplorasi regulasi pengawasan asuransi berbasis AI. Setiap jawaban disertai referensi pasal dari teks POJK asli.</p>
+            <div id="suggestions">
+              <button class="sugg-btn" onclick="sendMessage(this.textContent)">Apa saja kewajiban CDD yang harus dilakukan PJK?</button>
+              <button class="sugg-btn" onclick="sendMessage(this.textContent)">Bagaimana prosedur pemblokiran rekening terkait DTTOT?</button>
+              <button class="sugg-btn" onclick="sendMessage(this.textContent)">Berapa sanksi denda maksimal untuk pelanggaran APU-PPT?</button>
+              <button class="sugg-btn" onclick="sendMessage(this.textContent)">Apa kriteria nasabah yang dikategorikan berisiko tinggi?</button>
+              <button class="sugg-btn" onclick="sendMessage(this.textContent)">Bagaimana kewajiban pelatihan APU-PPT untuk pegawai?</button>
+              <button class="sugg-btn" onclick="sendMessage(this.textContent)">Apa yang dimaksud EDD dan kapan wajib diterapkan?</button>
+            </div>
           </div>
         </div>
       </div>
+
+      <div id="input-area">
+        <div id="file-preview">
+          <span style="font-size:18px;" id="file-icon">📄</span>
+          <span class="file-name" id="file-name-text"></span>
+          <span class="file-size" id="file-size-text"></span>
+          <button class="file-remove" onclick="removeFile()" title="Hapus file">×</button>
+        </div>
+        <div id="input-inner">
+          <input type="file" id="file-input" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp" style="display:none" onchange="handleFileSelect(event)">
+          <button id="attach-btn" onclick="document.getElementById('file-input').click()" title="Upload dokumen">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+            </svg>
+          </button>
+          <textarea id="qinput" placeholder="Tanya tentang regulasi asuransi... (Enter kirim, Shift+Enter baris baru)" rows="1"
+            onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+          <button id="send-btn" onclick="sendMessage()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+            Kirim
+          </button>
+        </div>
+        <p id="disclaimer">Jawaban berdasarkan teks POJK asli dalam database CORE · Konfirmasi dengan tim pengawas untuk keputusan resmi</p>
+      </div>
     </div>
 
-    <!-- Input -->
-    <div id="input-area">
-      <div id="file-preview">
-        <span style="font-size:20px;" id="file-icon">📄</span>
-        <span class="file-name" id="file-name-text"></span>
-        <span class="file-size" id="file-size-text"></span>
-        <button class="file-remove" onclick="removeFile()" title="Hapus file">×</button>
+    <!-- Admin panel -->
+    <div id="admin-panel">
+      <div class="admin-title">Panel Admin</div>
+      <div class="admin-subtitle">CORE · Manajemen Database Regulasi</div>
+
+      <div class="admin-grid">
+
+        <!-- Upload card -->
+        <div class="admin-card">
+          <div class="admin-card-title">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            Upload POJK Baru
+          </div>
+
+          <div id="drop-zone" onclick="document.getElementById('pojk-file-input').click()"
+            ondragover="dzDragOver(event)" ondragleave="dzDragLeave(event)" ondrop="dzDrop(event)">
+            <div class="dz-icon">📂</div>
+            <div class="dz-text">Klik atau drag &amp; drop PDF di sini</div>
+            <div class="dz-hint">Format: PDF · Maks 50MB</div>
+          </div>
+          <input type="file" id="pojk-file-input" accept=".pdf" style="display:none" onchange="handlePojkFileSelect(event)">
+
+          <div id="upload-progress-wrap">
+            <div class="progress-label">
+              <span id="upload-status-label">Memproses...</span>
+              <span id="upload-pct">0%</span>
+            </div>
+            <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill"></div></div>
+            <div id="upload-status"></div>
+          </div>
+        </div>
+
+        <!-- Stats + list -->
+        <div>
+          <div class="admin-card" style="margin-bottom:16px;">
+            <div class="admin-card-title">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+              </svg>
+              Statistik
+            </div>
+            <div class="stat-row">
+              <div class="stat-box">
+                <div class="stat-val" id="stat-pojk">—</div>
+                <div class="stat-label">Peraturan</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-val" id="stat-pasal">—</div>
+                <div class="stat-label">Total Pasal</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="admin-card">
+            <div class="admin-card-title">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+              </svg>
+              Daftar POJK
+            </div>
+            <div id="admin-pojk-list">
+              <div id="admin-pojk-empty">Memuat data...</div>
+            </div>
+          </div>
+        </div>
+
       </div>
-      <div id="input-inner">
-        <input type="file" id="file-input" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp" style="display:none" onchange="handleFileSelect(event)">
-        <button id="attach-btn" onclick="document.getElementById('file-input').click()" title="Upload dokumen">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
-          </svg>
-        </button>
-        <textarea id="qinput"
-          placeholder="Eksplorasi regulasi pengawasan asuransi... (Enter untuk kirim, Shift+Enter untuk baris baru)"
-          rows="1"
-          onkeydown="handleKey(event)"
-          oninput="autoResize(this)"
-        ></textarea>
-        <button id="send-btn" onclick="sendMessage()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-          </svg>
-          Kirim
-        </button>
-      </div>
-      <p id="disclaimer">Jawaban berdasarkan teks asli POJK yang tersedia dalam database CORE. Untuk keputusan resmi, selalu konfirmasi dengan tim pengawas.</p>
     </div>
 
   </div>
 </div>
 
+<!-- Toast -->
+<div id="toast"><span class="toast-icon" id="toast-icon">✓</span><span id="toast-msg"></span></div>
+
+<!-- Confirm dialog -->
+<div id="confirm-overlay">
+  <div id="confirm-dialog">
+    <h3 id="confirm-title">Konfirmasi</h3>
+    <p id="confirm-body">Apakah Anda yakin?</p>
+    <div class="confirm-actions">
+      <button class="btn-cancel" onclick="closeConfirm()">Batal</button>
+      <button class="btn-confirm-del" id="confirm-ok-btn" onclick="confirmOk()">Hapus</button>
+    </div>
+  </div>
+</div>
+
 <script>
-// ── State ─────────────────────────────────────────────────
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
 const state = {
+  view: 'login',        // 'login' | 'app'
+  panel: 'chat',        // 'chat' | 'admin'
+  user: null,           // { username, role, token }
   messages: [],
   loading: false,
   sidebarOpen: true,
-  openSourceId: null,
-  attachedFile: null,   // file yang sedang dilampirkan
+  attachedFile: null,
+  pojkList: [],
+  adminMode: false,
 }
 
-// ── Init ──────────────────────────────────────────────────
+let confirmCallback = null
+let toastTimeout = null
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
-  loadPojkList()
-  document.getElementById('qinput').focus()
+  // Enter key on login fields
+  ['login-username','login-password'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => {
+      if (e.key === 'Enter') doLogin()
+    })
+  })
 })
 
-// ── Sidebar ───────────────────────────────────────────────
+// ═══════════════════════════════════════════
+// VIEWS
+// ═══════════════════════════════════════════
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'))
+  document.getElementById('view-' + name).classList.add('active')
+  state.view = name
+}
+
+function showPanel(name) {
+  state.panel = name
+  const chatPanel = document.getElementById('chat-panel')
+  const adminPanel = document.getElementById('admin-panel')
+  const topbarTitle = document.getElementById('topbar-title')
+  const adminBtn = document.getElementById('admin-toggle-btn')
+
+  if (name === 'admin') {
+    chatPanel.style.display = 'none'
+    adminPanel.classList.add('active')
+    topbarTitle.innerHTML = '<span>CORE</span> &nbsp;/ Panel Admin'
+    adminBtn.classList.add('active')
+    loadAdminData()
+  } else {
+    chatPanel.style.display = 'flex'
+    adminPanel.classList.remove('active')
+    topbarTitle.innerHTML = '<span>CORE</span> &nbsp;/ Regulasi Asuransi'
+    adminBtn.classList.remove('active')
+  }
+}
+
+// ═══════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════
+async function doLogin() {
+  const username = document.getElementById('login-username').value.trim()
+  const password = document.getElementById('login-password').value.trim()
+  const errEl = document.getElementById('login-error')
+  const btn = document.getElementById('login-btn')
+
+  errEl.style.display = 'none'
+
+  if (!username || !password) {
+    showLoginError('Username dan password wajib diisi.')
+    return
+  }
+
+  btn.disabled = true
+  btn.innerHTML = '<div class="spinner"></div> Memverifikasi...'
+
+  try {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    })
+    const data = await res.json()
+
+    if (!res.ok || !data.token) {
+      showLoginError(data.error || 'Username atau password salah.')
+      return
+    }
+
+    state.user = { username: data.username || username, role: data.role || 'admin', token: data.token }
+    enterApp()
+
+  } catch (e) {
+    showLoginError('Gagal terhubung ke server. Coba lagi.')
+  } finally {
+    btn.disabled = false
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> Masuk sebagai Admin`
+  }
+}
+
+function loginAsGuest() {
+  state.user = { username: 'Guest', role: 'guest', token: null }
+  enterApp()
+}
+
+function enterApp() {
+  const u = state.user
+  // Update UI
+  document.getElementById('user-avatar').textContent = u.username.charAt(0).toUpperCase()
+  document.getElementById('user-display-name').textContent = u.username
+  document.getElementById('user-display-role').textContent = u.role === 'admin' ? 'Administrator' : 'Guest'
+
+  // Show admin btn only for admin
+  if (u.role === 'admin') {
+    document.getElementById('admin-toggle-btn').style.display = 'flex'
+  }
+
+  showView('app')
+  loadPojkList()
+  document.getElementById('qinput').focus()
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('login-error')
+  el.textContent = msg
+  el.style.display = 'block'
+}
+
+function doLogout() {
+  showConfirm('Keluar dari CORE', 'Sesi Anda akan diakhiri. Lanjutkan?', () => {
+    state.user = null
+    state.messages = []
+    state.panel = 'chat'
+    // Reset chat
+    document.getElementById('messages-inner').innerHTML = `
+      <div id="welcome">
+        <div class="welcome-icon">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#C9A84C" stroke-width="1.6" stroke-linecap="round">
+            <circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/>
+          </svg>
+        </div>
+        <h2>Selamat Datang di CORE</h2>
+        <p>Eksplorasi regulasi pengawasan asuransi berbasis AI. Setiap jawaban disertai referensi pasal dari teks POJK asli.</p>
+        <div id="suggestions">
+          <button class="sugg-btn" onclick="sendMessage(this.textContent)">Apa saja kewajiban CDD yang harus dilakukan PJK?</button>
+          <button class="sugg-btn" onclick="sendMessage(this.textContent)">Bagaimana prosedur pemblokiran rekening terkait DTTOT?</button>
+          <button class="sugg-btn" onclick="sendMessage(this.textContent)">Berapa sanksi denda maksimal untuk pelanggaran APU-PPT?</button>
+          <button class="sugg-btn" onclick="sendMessage(this.textContent)">Apa kriteria nasabah yang dikategorikan berisiko tinggi?</button>
+          <button class="sugg-btn" onclick="sendMessage(this.textContent)">Bagaimana kewajiban pelatihan APU-PPT untuk pegawai?</button>
+          <button class="sugg-btn" onclick="sendMessage(this.textContent)">Apa yang dimaksud EDD dan kapan wajib diterapkan?</button>
+        </div>
+      </div>`
+    document.getElementById('admin-toggle-btn').style.display = 'none'
+    document.getElementById('export-btn').style.display = 'none'
+    document.getElementById('login-username').value = ''
+    document.getElementById('login-password').value = ''
+    document.getElementById('login-error').style.display = 'none'
+    showPanel('chat')
+    showView('login')
+  }, 'Keluar')
+}
+
+// ═══════════════════════════════════════════
+// SIDEBAR
+// ═══════════════════════════════════════════
 function toggleSidebar() {
   state.sidebarOpen = !state.sidebarOpen
   document.getElementById('sidebar').classList.toggle('collapsed', !state.sidebarOpen)
@@ -299,73 +1418,240 @@ async function loadPojkList() {
   try {
     const res = await fetch('/api/pojk-list')
     const data = await res.json()
-    const list = data.pojk || []
+    state.pojkList = data.pojk || []
 
-    document.getElementById('pojk-count').textContent =
-      list.length > 0 ? `${list.length} peraturan tersedia` : 'Belum ada peraturan'
+    const count = state.pojkList.length
+    document.getElementById('pojk-count-badge').textContent = count > 0 ? `${count}` : '0'
 
     const container = document.getElementById('pojk-list')
     const empty = document.getElementById('pojk-empty')
 
-    if (list.length === 0) {
+    if (count === 0) {
       empty.style.display = 'block'
     } else {
       empty.style.display = 'none'
-      list.forEach(p => {
+      // Clear existing items (keep empty div)
+      container.querySelectorAll('.pojk-item').forEach(el => el.remove())
+
+      state.pojkList.forEach(p => {
         const div = document.createElement('div')
         div.className = 'pojk-item'
-        div.innerHTML = `<div class="name">${escHtml(p.nama)}</div><div class="meta">${p.tahun} · ${p.jumlah_pasal} pasal</div>`
+        const nomor = p.nomor || p.nama || '—'
+        div.innerHTML = `
+          <div class="pi-name">${escHtml(p.nama)}</div>
+          <div class="pi-meta">
+            <span>${p.tahun || '—'}</span>
+            <span class="pi-tag">${p.jumlah_pasal || '?'} pasal</span>
+          </div>`
+        if (p.file_url) {
+          div.style.cursor = 'pointer'
+          div.onclick = () => window.open(p.file_url, '_blank')
+          div.title = 'Buka PDF'
+        }
         container.appendChild(div)
       })
 
-      // Update badge di header
-      const badge = document.getElementById('header-badge')
-      badge.textContent = `${list.length} POJK aktif`
+      // Badge
+      const badge = document.getElementById('topbar-badge')
+      badge.textContent = `${count} POJK aktif`
       badge.style.display = 'block'
     }
-  } catch (e) {
-    document.getElementById('pojk-count').textContent = 'Gagal memuat'
+  } catch(e) {
+    document.getElementById('pojk-count-badge').textContent = '!'
   }
 }
 
-// ── Input handlers ────────────────────────────────────────
+// ═══════════════════════════════════════════
+// ADMIN PANEL
+// ═══════════════════════════════════════════
+function toggleAdmin() {
+  if (state.panel === 'admin') showPanel('chat')
+  else showPanel('admin')
+}
+
+async function loadAdminData() {
+  if (!state.user?.token) return
+  try {
+    const res = await fetch('/api/admin-pojk', {
+      headers: { 'Authorization': 'Bearer ' + state.user.token }
+    })
+    const data = await res.json()
+    const list = data.pojk || []
+
+    // Stats
+    const totalPasal = list.reduce((s, p) => s + (p.jumlah_pasal || 0), 0)
+    document.getElementById('stat-pojk').textContent = list.length
+    document.getElementById('stat-pasal').textContent = totalPasal.toLocaleString('id-ID')
+
+    // List
+    const container = document.getElementById('admin-pojk-list')
+    const emptyEl = document.getElementById('admin-pojk-empty')
+    container.querySelectorAll('.admin-pojk-row').forEach(el => el.remove())
+
+    if (list.length === 0) {
+      emptyEl.style.display = 'block'
+    } else {
+      emptyEl.style.display = 'none'
+      list.forEach(p => {
+        const row = document.createElement('div')
+        row.className = 'admin-pojk-row'
+        row.innerHTML = `
+          <div class="apl-name">${escHtml(p.nama)}</div>
+          <div class="apl-meta">${p.tahun || '—'} · ${p.jumlah_pasal || '?'}ps</div>
+          <div class="apl-actions">
+            ${p.file_url ? `<button class="apl-btn" onclick="window.open('${escHtml(p.file_url)}','_blank')">PDF</button>` : ''}
+            <button class="apl-btn del" onclick="deletePojk('${p.id}','${escHtml(p.nama)}')">Hapus</button>
+          </div>`
+        container.appendChild(row)
+      })
+    }
+  } catch(e) {
+    document.getElementById('admin-pojk-empty').textContent = 'Gagal memuat data.'
+    document.getElementById('admin-pojk-empty').style.display = 'block'
+  }
+}
+
+// ── Drag & drop upload ──
+function dzDragOver(e) {
+  e.preventDefault()
+  document.getElementById('drop-zone').classList.add('drag-over')
+}
+function dzDragLeave(e) {
+  document.getElementById('drop-zone').classList.remove('drag-over')
+}
+function dzDrop(e) {
+  e.preventDefault()
+  document.getElementById('drop-zone').classList.remove('drag-over')
+  const file = e.dataTransfer.files[0]
+  if (file) uploadPojkFile(file)
+}
+function handlePojkFileSelect(e) {
+  const file = e.target.files[0]
+  if (file) uploadPojkFile(file)
+  e.target.value = ''
+}
+
+async function uploadPojkFile(file) {
+  if (!file.name.endsWith('.pdf')) {
+    showToast('Hanya file PDF yang diterima.', 'error')
+    return
+  }
+  if (file.size > 50 * 1024 * 1024) {
+    showToast('Ukuran file melebihi batas 50MB.', 'error')
+    return
+  }
+
+  const progressWrap = document.getElementById('upload-progress-wrap')
+  const progressFill = document.getElementById('progress-fill')
+  const statusEl = document.getElementById('upload-status')
+  const pctEl = document.getElementById('upload-pct')
+  const labelEl = document.getElementById('upload-status-label')
+
+  progressWrap.style.display = 'block'
+  progressFill.style.width = '0%'
+  pctEl.textContent = '0%'
+  labelEl.textContent = 'Membaca file...'
+  statusEl.textContent = ''
+
+  try {
+    // Convert to base64
+    const b64 = await new Promise((res, rej) => {
+      const r = new FileReader()
+      r.onload = () => {
+        progressFill.style.width = '20%'; pctEl.textContent = '20%'
+        res(r.result.split(',')[1])
+      }
+      r.onerror = rej
+      r.readAsDataURL(file)
+    })
+
+    labelEl.textContent = 'Mengupload ke server...'
+    progressFill.style.width = '40%'; pctEl.textContent = '40%'
+
+    const res = await fetch('/api/admin-upload', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (state.user?.token || '')
+      },
+      body: JSON.stringify({ filename: file.name, filedata: b64 })
+    })
+
+    progressFill.style.width = '70%'; pctEl.textContent = '70%'
+    labelEl.textContent = 'Memproses & ingesting pasal...'
+
+    const data = await res.json()
+
+    if (!res.ok) throw new Error(data.error || 'Upload gagal')
+
+    progressFill.style.width = '100%'; pctEl.textContent = '100%'
+    labelEl.textContent = 'Selesai!'
+    statusEl.innerHTML = `<span style="color:#4CAF7D;">✓ Berhasil:</span> ${escHtml(data.nama || file.name)} — ${data.jumlah_pasal || '?'} pasal ter-ingest.`
+
+    showToast('POJK berhasil diupload!', 'success')
+    loadPojkList()
+    setTimeout(() => loadAdminData(), 500)
+
+  } catch(e) {
+    progressFill.style.width = '100%'
+    progressFill.style.background = 'var(--err)'
+    labelEl.textContent = 'Gagal'
+    statusEl.innerHTML = `<span style="color:var(--err);">✗ Error:</span> ${escHtml(e.message)}`
+    showToast('Upload gagal: ' + e.message, 'error')
+  }
+}
+
+async function deletePojk(id, nama) {
+  showConfirm(
+    'Hapus POJK',
+    `Yakin menghapus "${nama}"? Seluruh data pasal akan dihapus permanen.`,
+    async () => {
+      try {
+        const res = await fetch('/api/admin-pojk', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + (state.user?.token || '')
+          },
+          body: JSON.stringify({ id })
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Gagal menghapus')
+        showToast(`${nama} berhasil dihapus.`, 'success')
+        loadPojkList()
+        loadAdminData()
+      } catch(e) {
+        showToast('Hapus gagal: ' + e.message, 'error')
+      }
+    }
+  )
+}
+
+// ═══════════════════════════════════════════
+// CHAT
+// ═══════════════════════════════════════════
 function handleKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault()
-    sendMessage()
-  }
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
 }
-
 function autoResize(el) {
   el.style.height = 'auto'
   el.style.height = Math.min(el.scrollHeight, 120) + 'px'
 }
 
-// ── File handling ─────────────────────────────────────────
 function handleFileSelect(event) {
   const file = event.target.files[0]
   if (!file) return
-
-  const maxSize = 15 * 1024 * 1024 // 15MB
-  if (file.size > maxSize) {
-    alert('File terlalu besar. Maksimal 15MB.')
-    event.target.value = ''
-    return
+  if (file.size > 15 * 1024 * 1024) {
+    showToast('File terlalu besar. Maks 15MB.', 'error')
+    event.target.value = ''; return
   }
-
   state.attachedFile = file
-
-  // Update preview
-  const icons = { 'pdf': '📕', 'doc': '📘', 'docx': '📘', 'png': '🖼️', 'jpg': '🖼️', 'jpeg': '🖼️', 'webp': '🖼️' }
+  const icons = { pdf:'📕', doc:'📘', docx:'📘', png:'🖼️', jpg:'🖼️', jpeg:'🖼️', webp:'🖼️' }
   const ext = file.name.split('.').pop().toLowerCase()
-  const sizeMB = (file.size / 1024 / 1024).toFixed(1)
-
   document.getElementById('file-icon').textContent = icons[ext] || '📄'
   document.getElementById('file-name-text').textContent = file.name
-  document.getElementById('file-size-text').textContent = `${sizeMB} MB`
+  document.getElementById('file-size-text').textContent = (file.size/1024/1024).toFixed(1) + ' MB'
   document.getElementById('file-preview').style.display = 'flex'
-
-  // Focus ke input
   document.getElementById('qinput').placeholder = 'Tambahkan pertanyaan tentang dokumen ini (opsional)...'
   document.getElementById('qinput').focus()
 }
@@ -374,42 +1660,36 @@ function removeFile() {
   state.attachedFile = null
   document.getElementById('file-input').value = ''
   document.getElementById('file-preview').style.display = 'none'
-  document.getElementById('qinput').placeholder = 'Eksplorasi regulasi pengawasan asuransi... (Enter untuk kirim, Shift+Enter untuk baris baru)'
+  document.getElementById('qinput').placeholder = 'Tanya tentang regulasi asuransi... (Enter kirim, Shift+Enter baris baru)'
 }
 
-// Konversi file ke base64
 function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result.split(',')[1])
-    reader.onerror = reject
-    reader.readAsDataURL(file)
+  return new Promise((res, rej) => {
+    const r = new FileReader()
+    r.onload = () => res(r.result.split(',')[1])
+    r.onerror = rej
+    r.readAsDataURL(file)
   })
 }
 
-// ── Send message ──────────────────────────────────────────
 async function sendMessage(text) {
   const input = document.getElementById('qinput')
   const query = text || input.value.trim()
   const hasFile = !!state.attachedFile
-
   if (!query && !hasFile) return
   if (state.loading) return
 
-  // Hide welcome
   const welcome = document.getElementById('welcome')
   if (welcome) welcome.style.display = 'none'
 
   const fileRef = state.attachedFile
   const displayQuery = query || (hasFile ? `Analisis dokumen: ${fileRef.name}` : '')
 
-  input.value = ''
-  input.style.height = '44px'
+  input.value = ''; input.style.height = '42px'
   removeFile()
   state.loading = true
   document.getElementById('send-btn').disabled = true
 
-  // Tampilkan pesan user
   const userMsg = { role: 'user', content: displayQuery, fileName: fileRef?.name }
   state.messages.push(userMsg)
   renderMessage(userMsg)
@@ -418,14 +1698,11 @@ async function sendMessage(text) {
 
   try {
     let body
-
     if (fileRef) {
-      // Ada file — kirim sebagai form data dengan base64
       const ext = fileRef.name.split('.').pop().toLowerCase()
       const b64 = await fileToBase64(fileRef)
-
       body = JSON.stringify({
-        query: query || `Analisis dokumen "${fileRef.name}" dan identifikasi ketidaksesuaian dengan POJK yang ada di database. Berikan daftar poin ketidaksesuaian beserta pasal yang dilanggar.`,
+        query: query || `Analisis dokumen "${fileRef.name}" dan identifikasi ketidaksesuaian dengan POJK yang ada di database.`,
         messages: state.messages.slice(-6).map(m => ({ role: m.role, content: m.content })),
         file: { name: fileRef.name, ext, data: b64, mime: fileRef.type },
       })
@@ -441,7 +1718,6 @@ async function sendMessage(text) {
       headers: { 'Content-Type': 'application/json' },
       body,
     })
-
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Terjadi kesalahan')
 
@@ -456,7 +1732,7 @@ async function sendMessage(text) {
     thinkingEl.remove()
     renderMessage(aiMsg)
 
-  } catch (err) {
+  } catch(err) {
     thinkingEl.remove()
     const errMsg = { role: 'assistant', content: `Maaf, terjadi kesalahan: ${err.message}. Silakan coba lagi.`, sources: [] }
     state.messages.push(errMsg)
@@ -469,17 +1745,18 @@ async function sendMessage(text) {
   scrollBottom()
 }
 
-// ── Render message ────────────────────────────────────────
 function renderMessage(msg) {
   const container = document.getElementById('messages-inner')
   const isUser = msg.role === 'user'
 
   const wrap = document.createElement('div')
-  wrap.className = `msg ${isUser ? 'user' : ''}`
+  wrap.className = `msg${isUser ? ' user' : ''}`
 
   const avatar = document.createElement('div')
   avatar.className = `avatar ${isUser ? 'user' : 'ai'}`
-  avatar.textContent = isUser ? 'K' : 'AI'
+  avatar.textContent = isUser
+    ? (state.user?.username?.charAt(0)?.toUpperCase() || 'U')
+    : 'AI'
 
   const bwrap = document.createElement('div')
   bwrap.className = 'bubble-wrap'
@@ -487,14 +1764,13 @@ function renderMessage(msg) {
   const bubble = document.createElement('div')
   bubble.className = `bubble ${isUser ? 'user' : 'ai'}`
 
-  // Tampilkan file attachment jika ada
   if (isUser && msg.fileName) {
     const icons = { pdf:'📕', doc:'📘', docx:'📘', png:'🖼️', jpg:'🖼️', jpeg:'🖼️', webp:'🖼️' }
     const ext = msg.fileName.split('.').pop().toLowerCase()
-    const fileDiv = document.createElement('div')
-    fileDiv.className = 'msg-file'
-    fileDiv.innerHTML = `<span>${icons[ext]||'📄'}</span><span>${escHtml(msg.fileName)}</span>`
-    bubble.appendChild(fileDiv)
+    const fd = document.createElement('div')
+    fd.className = 'msg-file'
+    fd.innerHTML = `<span>${icons[ext]||'📄'}</span><span>${escHtml(msg.fileName)}</span>`
+    bubble.appendChild(fd)
   }
 
   const textDiv = document.createElement('div')
@@ -502,15 +1778,13 @@ function renderMessage(msg) {
   bubble.appendChild(textDiv)
   bwrap.appendChild(bubble)
 
-  // Sources (AI only)
-  if (!isUser && msg.sources && msg.sources.length > 0) {
+  // Sources
+  if (!isUser && msg.sources?.length > 0) {
     const srcRow = document.createElement('div')
     srcRow.className = 'sources'
     const lbl = document.createElement('span')
-    lbl.className = 'src-label'
-    lbl.textContent = 'Referensi:'
+    lbl.className = 'src-label'; lbl.textContent = 'Ref:'
     srcRow.appendChild(lbl)
-
     msg.sources.forEach(src => {
       const btn = document.createElement('button')
       btn.className = 'src-btn'
@@ -521,13 +1795,13 @@ function renderMessage(msg) {
     bwrap.appendChild(srcRow)
   }
 
-  // Model badge (AI only)
+  // Model badge
   if (!isUser && msg.tier) {
     const tierLabel = { fast: 'Cepat', balanced: 'Seimbang', powerful: 'Lengkap' }
     const badge = document.createElement('span')
     badge.className = `model-badge ${msg.tier}`
     const modelName = msg.model ? msg.model.split('/').pop() : ''
-    badge.textContent = `${tierLabel[msg.tier] || msg.tier}${modelName ? ' · ' + modelName : ''}`
+    badge.textContent = `${tierLabel[msg.tier]||msg.tier}${modelName ? ' · '+modelName : ''}`
     bwrap.appendChild(badge)
   }
 
@@ -540,12 +1814,7 @@ function renderMessage(msg) {
 
 function toggleSourcePanel(btn, src, container) {
   const existingPanel = container.querySelector(`.src-panel[data-id="${src.id}"]`)
-  if (existingPanel) {
-    existingPanel.remove()
-    btn.classList.remove('active')
-    return
-  }
-  // Tutup panel lain di bubble yang sama
+  if (existingPanel) { existingPanel.remove(); btn.classList.remove('active'); return }
   container.querySelectorAll('.src-panel').forEach(p => p.remove())
   container.querySelectorAll('.src-btn').forEach(b => b.classList.remove('active'))
 
@@ -555,7 +1824,7 @@ function toggleSourcePanel(btn, src, container) {
 
   const title = document.createElement('div')
   title.className = 'src-panel-title'
-  title.textContent = `${src.pasal} · ${src.bab || ''} · ${src.source}`
+  title.textContent = `${src.pasal} · ${src.bab||''} · ${src.source}`
 
   const body = document.createElement('div')
   body.textContent = src.preview
@@ -566,7 +1835,6 @@ function toggleSourcePanel(btn, src, container) {
   btn.classList.add('active')
 }
 
-// ── Thinking indicator ────────────────────────────────────
 function showThinking() {
   const container = document.getElementById('messages-inner')
   const wrap = document.createElement('div')
@@ -574,9 +1842,7 @@ function showThinking() {
   wrap.innerHTML = `
     <div class="avatar ai">AI</div>
     <div class="thinking">
-      <div class="dots">
-        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
-      </div>
+      <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
       <span class="thinking-text">Mencari pasal relevan...</span>
     </div>`
   container.appendChild(wrap)
@@ -584,14 +1850,68 @@ function showThinking() {
   return wrap
 }
 
-// ── Helpers ───────────────────────────────────────────────
 function scrollBottom() {
   const el = document.getElementById('messages')
   el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
 }
 
+function checkExportBtn() {
+  const btn = document.getElementById('export-btn')
+  if (btn) btn.style.display = state.messages.length > 0 ? 'flex' : 'none'
+}
+
+// ═══════════════════════════════════════════
+// EXPORT WORD
+// ═══════════════════════════════════════════
+function exportWord() {
+  if (!state.messages.length) return
+  const now = new Date()
+  const dateStr = now.toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' })
+  const timeStr = now.toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit' })
+
+  let rows = ''
+  state.messages.forEach(msg => {
+    const isUser = msg.role === 'user'
+    const label = isUser ? 'Pertanyaan' : 'Jawaban CORE'
+    let sourcesHtml = ''
+    if (!isUser && msg.sources?.length > 0) {
+      const srcList = msg.sources.map(s => `${s.pasal} (${s.source})`).join(', ')
+      sourcesHtml = `<p style="font-size:11px;color:#64748B;margin-top:8px;font-style:italic;">Referensi: ${srcList}</p>`
+    }
+    rows += `<tr>
+      <td style="width:100px;padding:12px 8px;vertical-align:top;border-bottom:1px solid #E2E8F0;">
+        <strong style="font-size:12px;color:${isUser?'#1D4ED8':'#0F2B4E'};">${label}</strong>
+      </td>
+      <td style="padding:12px;border-bottom:1px solid #E2E8F0;">
+        <p style="margin:0;font-size:13px;line-height:1.6;">${msg.content.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')}</p>
+        ${sourcesHtml}
+      </td>
+    </tr>`
+  })
+
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+  <head><meta charset="utf-8"><title>CORE Export</title>
+  <style>body{font-family:Calibri,Arial,sans-serif;font-size:13px;color:#1E293B;margin:40px;}h1{color:#0F2B4E;font-size:20px;margin-bottom:4px;}.meta{color:#64748B;font-size:11px;margin-bottom:24px;}table{width:100%;border-collapse:collapse;}td{vertical-align:top;padding:10px;}</style>
+  </head><body>
+  <h1>CORE — Comprehensive Oversight Regulatory Explorer</h1>
+  <p class="meta">Diekspor: ${dateStr}, ${timeStr} · ${state.messages.filter(m=>m.role==='user').length} pertanyaan</p>
+  <hr style="border:none;border-top:2px solid #0F2B4E;margin-bottom:20px;">
+  <table>${rows}</table>
+  <br><p style="font-size:10px;color:#94A3B8;border-top:1px solid #E2E8F0;padding-top:10px;">Jawaban berdasarkan teks asli POJK dalam database CORE. Untuk keputusan resmi, selalu konfirmasi dengan tim pengawas.</p>
+  </body></html>`
+
+  const blob = new Blob(['\ufeff', html], { type: 'application/msword' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = `CORE_Export_${now.toISOString().slice(0,10)}.doc`
+  a.click(); URL.revokeObjectURL(url)
+}
+
+// ═══════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════
 function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
 }
 
 function formatText(text) {
@@ -603,84 +1923,38 @@ function formatText(text) {
     .replace(/^/, '<p>').replace(/$/, '</p>')
 }
 
-// ── Export Word ───────────────────────────────────────────
-function exportWord() {
-  if (state.messages.length === 0) return
+// ── Toast ──
+function showToast(msg, type = 'success') {
+  const toast = document.getElementById('toast')
+  const icon = document.getElementById('toast-icon')
+  const msgEl = document.getElementById('toast-msg')
 
-  const now = new Date()
-  const dateStr = now.toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' })
-  const timeStr = now.toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit' })
+  icon.textContent = type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ'
+  icon.style.color = type === 'success' ? 'var(--green)' : type === 'error' ? 'var(--err)' : 'var(--sky)'
+  msgEl.textContent = msg
 
-  // Build HTML yang akan dikonversi ke Word
-  let rows = ''
-  state.messages.forEach((msg, i) => {
-    const isUser = msg.role === 'user'
-    const label = isUser ? 'Pertanyaan' : 'Jawaban CORE'
-    const bgColor = isUser ? '#EFF6FF' : '#FFFFFF'
-    const borderColor = isUser ? '#BFDBFE' : '#E2E8F0'
-
-    // Format sources
-    let sourcesHtml = ''
-    if (!isUser && msg.sources && msg.sources.length > 0) {
-      const srcList = msg.sources.map(s => `${s.pasal} (${s.source})`).join(', ')
-      sourcesHtml = `<p style="font-size:11px;color:#64748B;margin-top:8px;font-style:italic;">Referensi: ${srcList}</p>`
-    }
-
-    rows += `
-      <tr>
-        <td style="width:100px;padding:12px 8px;vertical-align:top;border-bottom:1px solid #E2E8F0;">
-          <strong style="font-size:12px;color:${isUser ? '#1D4ED8' : '#0F2B4E'};">${label}</strong>
-        </td>
-        <td style="padding:12px;background:${bgColor};border:1px solid ${borderColor};border-radius:4px;border-bottom:1px solid #E2E8F0;">
-          <p style="margin:0;font-size:13px;color:#1E293B;line-height:1.6;">${msg.content.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')}</p>
-          ${sourcesHtml}
-        </td>
-      </tr>`
-  })
-
-  const html = `
-    <html xmlns:o="urn:schemas-microsoft-com:office:office"
-          xmlns:w="urn:schemas-microsoft-com:office:word"
-          xmlns="http://www.w3.org/TR/REC-html40">
-    <head>
-      <meta charset="utf-8">
-      <title>CORE Export</title>
-      <!--[if gte mso 9]>
-      <xml><w:WordDocument><w:View>Print</w:View><w:Zoom>90</w:Zoom></w:WordDocument></xml>
-      <![endif]-->
-      <style>
-        body { font-family: Calibri, Arial, sans-serif; font-size: 13px; color: #1E293B; margin: 40px; }
-        h1 { color: #0F2B4E; font-size: 20px; margin-bottom: 4px; }
-        .meta { color: #64748B; font-size: 11px; margin-bottom: 24px; }
-        table { width: 100%; border-collapse: collapse; }
-        td { vertical-align: top; padding: 10px; }
-      </style>
-    </head>
-    <body>
-      <h1>CORE — Comprehensive Oversight Regulatory Explorer</h1>
-      <p class="meta">Diekspor pada: ${dateStr}, ${timeStr} &nbsp;|&nbsp; ${state.messages.filter(m=>m.role==='user').length} pertanyaan</p>
-      <hr style="border:none;border-top:2px solid #0F2B4E;margin-bottom:20px;">
-      <table>${rows}</table>
-      <br>
-      <p style="font-size:10px;color:#94A3B8;border-top:1px solid #E2E8F0;padding-top:10px;">
-        Jawaban berdasarkan teks asli POJK yang tersedia dalam database CORE. Untuk keputusan resmi, selalu konfirmasi dengan tim pengawas.
-      </p>
-    </body>
-    </html>`
-
-  const blob = new Blob(['\ufeff', html], { type: 'application/msword' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `CORE_Export_${now.toISOString().slice(0,10)}.doc`
-  a.click()
-  URL.revokeObjectURL(url)
+  toast.classList.add('show')
+  if (toastTimeout) clearTimeout(toastTimeout)
+  toastTimeout = setTimeout(() => toast.classList.remove('show'), 3500)
 }
 
-// Tampilkan tombol export saat ada pesan
-function checkExportBtn() {
-  const btn = document.getElementById('export-btn')
-  if (btn) btn.style.display = state.messages.length > 0 ? 'flex' : 'none'
+// ── Confirm dialog ──
+function showConfirm(title, body, onOk, okLabel = 'Hapus') {
+  document.getElementById('confirm-title').textContent = title
+  document.getElementById('confirm-body').textContent = body
+  document.getElementById('confirm-ok-btn').textContent = okLabel
+  confirmCallback = onOk
+  document.getElementById('confirm-overlay').classList.add('show')
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('show')
+  confirmCallback = null
+}
+
+function confirmOk() {
+  closeConfirm()
+  if (confirmCallback) confirmCallback()
 }
 </script>
 </body>
