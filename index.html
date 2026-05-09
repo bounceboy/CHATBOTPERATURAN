@@ -1230,10 +1230,7 @@ html, body { height: 100%; background: var(--ink); color: var(--white); font-fam
                 <div class="stat-val" id="stat-pojk">—</div>
                 <div class="stat-label">Peraturan</div>
               </div>
-              <div class="stat-box">
-                <div class="stat-val" id="stat-pasal">—</div>
-                <div class="stat-label">Total Pasal</div>
-              </div>
+
             </div>
           </div>
 
@@ -1472,7 +1469,6 @@ async function loadPojkList() {
           <div class="pi-name">${escHtml(p.nama)}</div>
           <div class="pi-meta">
             <span>${p.tahun || '—'}</span>
-            <span class="pi-tag">${p.jumlah_pasal || '?'} pasal</span>
           </div>`
         if (p.file_url) {
           div.style.cursor = 'pointer'
@@ -1533,7 +1529,7 @@ async function loadAdminData() {
 
         const metaEl = document.createElement('div')
         metaEl.className = 'apl-meta'
-        metaEl.textContent = `${p.tahun || '—'} · ${p.jumlah_pasal || '?'}ps`
+        metaEl.textContent = `${p.tahun || '—'}`
 
         const actEl = document.createElement('div')
         actEl.className = 'apl-actions'
