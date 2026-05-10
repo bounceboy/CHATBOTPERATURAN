@@ -314,22 +314,44 @@ module.exports = async function handler(req, res) {
     }
 
     // 1.5 Vector similarity search — primary retrieval method
-    // Embed query dan cari chunk paling mirip secara semantik
     try {
-      const queryEmbedding = await embedQuery(effectiveQuery)  // embed query murni, tanpa history
-      const { data: vectorChunks, error: vecErr } = await db.rpc('match_pojk_chunks', {
+      const queryEmbedding = await embedQuery(effectiveQuery)
+
+      // Deteksi apakah user menyebut POJK spesifik di query (misal "pojk 11 2023")
+      const pojkInQuery = effectiveQuery.match(/(?:POJK|SEOJK)?\s*(?:No\.?\s*)?(\d+)\s+(?:Tahun\s+)?(\d{4})/i)
+      const filterSource = pojkInQuery
+        ? `POJK No. ${pojkInQuery[1]} Tahun ${pojkInQuery[2]}`
+        : (mentionedPojk.length === 1 ? mentionedPojk[0] : null)
+
+      // Search dengan filter source jika ada POJK spesifik
+      const { data: v1, error: e1 } = await db.rpc('match_pojk_chunks', {
         query_embedding: queryEmbedding,
         match_count: limit,
-        filter_source: null,
+        filter_source: filterSource,
       })
-      if (!vecErr && vectorChunks?.length > 0) {
+
+      let vectorChunks = (!e1 && v1?.length > 0) ? v1 : []
+
+      // Jika dengan filter kurang, tambah search global
+      if (vectorChunks.length < limit) {
+        const { data: v2, error: e2 } = await db.rpc('match_pojk_chunks', {
+          query_embedding: queryEmbedding,
+          match_count: limit,
+          filter_source: null,
+        })
+        if (!e2 && v2?.length > 0) {
+          const existIds = new Set(vectorChunks.map(c => c.id))
+          const global = v2.filter(c => !existIds.has(c.id))
+          vectorChunks = [...vectorChunks, ...global].slice(0, limit)
+        }
+      }
+
+      if (vectorChunks.length > 0) {
         const existIds = new Set(chunks.map(c => c.id))
-        const newChunks = vectorChunks.filter(c => !existIds.has(c.id))
-        chunks = [...chunks, ...newChunks]
+        chunks = [...chunks, ...vectorChunks.filter(c => !existIds.has(c.id))]
       }
     } catch(embErr) {
       console.error('Embedding error:', embErr.message)
-      // Lanjut ke FTS fallback jika embedding gagal
     }
 
     // 2. Full-Text Search — jauh lebih akurat dari fetch-all scoring
