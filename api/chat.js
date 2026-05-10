@@ -387,8 +387,17 @@ module.exports = async function handler(req, res) {
           const { data: r1 } = await buildQ(tsAnd, mentionedPojk, 20)
           results = r1 || []
 
-          // Tahap 1b: tanpa filter POJK jika kosong
-          if (results.length === 0 && mentionedPojk.length > 0) {
+          // Tahap 1b: selalu cari juga tanpa filter POJK, merge hasilnya
+          // Ini penting agar query baru yang topiknya beda tetap bisa ditemukan
+          if (mentionedPojk.length > 0) {
+            const { data: r1b } = await buildQ(tsAnd, null, 20)
+            if (r1b?.length > 0) {
+              const existIds = new Set(results.map(x => x.id))
+              // Tambahkan hasil tanpa filter, prioritaskan yang tidak ada di hasil filter
+              const newFromGlobal = r1b.filter(x => !existIds.has(x.id))
+              results = [...results, ...newFromGlobal]
+            }
+          } else if (results.length === 0) {
             const { data: r1b } = await buildQ(tsAnd, null, 20)
             results = r1b || []
           }
