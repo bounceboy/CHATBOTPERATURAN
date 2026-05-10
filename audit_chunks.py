@@ -36,12 +36,20 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 def audit():
     print("🔍 Mengambil semua chunk dari database...")
     
-    # Ambil semua chunk
-    resp = supabase.table('pojk_chunks') \
-        .select('id, pasal, source, content, embedding') \
-        .execute()
-    
-    chunks = resp.data or []
+    # Ambil semua chunk dengan pagination (Supabase default limit 1000)
+    chunks = []
+    page_size = 1000
+    offset = 0
+    while True:
+        resp = supabase.table('pojk_chunks') \
+            .select('id, pasal, source, content, embedding') \
+            .range(offset, offset + page_size - 1) \
+            .execute()
+        batch = resp.data or []
+        chunks.extend(batch)
+        if len(batch) < page_size:
+            break
+        offset += page_size
     print(f"📊 Total chunk: {len(chunks)}\n")
     
     # Group by source
