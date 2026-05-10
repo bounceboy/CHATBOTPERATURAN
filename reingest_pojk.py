@@ -60,6 +60,14 @@ def extract_text(pdf_path):
                 pages.append(t)
     return "\n".join(pages)
 
+def extract_title(full_text):
+    """Ekstrak judul POJK dari teks (setelah TENTANG, sebelum DENGAN RAHMAT)"""
+    m = re.search(r'TENTANG\s*\n(.*?)(?=DENGAN RAHMAT|DEWAN KOMISIONER)', full_text, re.DOTALL | re.IGNORECASE)
+    if m:
+        title = re.sub(r'\s+', ' ', m.group(1)).strip()
+        return title[:200]
+    return ""
+
 def split_segments(full_text):
     memutuskan_m = re.search(r'\bMEMUTUSKAN\b', full_text)
     penjelasan_m  = re.search(r'\bPENJELASAN\b', full_text)
@@ -250,6 +258,10 @@ def ingest_file(pdf_path):
         return False
     print(f"  → {len(full_text):,} karakter diekstrak")
 
+    judul = extract_title(full_text)
+    if judul:
+        print(f"  Judul : {judul[:80]}")
+
     konsideran, batang_tubuh, penjelasan = split_segments(full_text)
 
     all_chunks = []
@@ -268,6 +280,12 @@ def ingest_file(pdf_path):
                            if not c['pasal'].startswith('Penjelasan')
                            and c['bab'] != 'Konsideran'])
         print(f"  → {pasal_count} pasal | {len([c for c in all_chunks if c['pasal'].startswith('Penjelasan')])} penjelasan | {len([c for c in all_chunks if c['bab']=='Konsideran'])} konsideran")
+
+    # Inject judul ke prefix SETIAP chunk — agar AI selalu tahu konteks POJK
+    if judul:
+        prefix = f"[{meta['nama']} — {judul}] "
+        for c in all_chunks:
+            c['content'] = prefix + c['content']
 
     if not all_chunks:
         print("  ✗ Tidak ada chunk")
