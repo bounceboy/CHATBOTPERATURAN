@@ -398,7 +398,7 @@ module.exports = async function handler(req, res) {
       try {
         const allContent = chunks.map(c => c.content).join(' ')
         // Deteksi referensi ke POJK lain dalam konten chunk
-        const crossRefs = [...allContent.matchAll(/POJK\s+(?:Nomor\s+)?(\d+)\/POJK\.\d+\/(\d{4})|POJK\s+(?:No\.?\s+)?(\d+)\s+Tahun\s+(\d{4})/gi)]
+        const crossRefs = [...allContent.matchAll(/(?:POJK|Peraturan Otoritas Jasa Keuangan)\s+(?:Nomor\s+|No\.?\s+)?(\d+)(?:\/POJK\.\d+)?\/(\d{4})|POJK\s+(?:No\.?\s+)?(\d+)\s+Tahun\s+(\d{4})/gi)]
         const referencedSources = new Set()
         for (const m of crossRefs) {
           const num = m[1] || m[3]
