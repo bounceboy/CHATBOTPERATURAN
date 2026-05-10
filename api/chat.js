@@ -30,6 +30,49 @@ function extractMentionedPojk(messages) {
   return [...pojkSet]
 }
 
+// Normalisasi query: ubah kata berimbuhan ke bentuk dasar
+// Solusi untuk FTS 'simple' yang tidak support stemming bahasa Indonesia
+function normalizeQuery(q) {
+  const stemMap = {
+    'keterlambatan': 'terlambat',
+    'keterlambatan': 'terlambat',
+    'pelanggaran': 'langgar',
+    'penyampaian': 'sampaikan',
+    'penerapan': 'terapkan',
+    'pengendalian': 'kendali',
+    'pelaksanaan': 'laksana',
+    'pemberian': 'berikan',
+    'pemisahan': 'pisah',
+    'pemenuhan': 'penuhi',
+    'pengawasan': 'awasi',
+    'penggunaan': 'gunakan',
+    'pengelolaan': 'kelola',
+    'pemanfaatan': 'manfaat',
+    'pencegahan': 'cegah',
+    'pencucian': 'cuci',
+    'pendanaan': 'dana',
+    'perasuransian': 'asuransi',
+    'perasuransian': 'asuransi',
+    'reasuransian': 'reasuransi',
+    'kesehatan': 'sehat',
+    'keuangan': 'keuangan',
+    'permodalan': 'modal',
+    'perizinan': 'izin',
+    'kepatuhan': 'patuh',
+    'pendirian': 'dirikan',
+    'pembubaran': 'bubar',
+    'perubahan': 'ubah',
+    'kepemilikan': 'milik',
+    'pengkinian': 'kini',
+    'pemblokiran': 'blokir',
+  }
+  let result = q.toLowerCase()
+  for (const [from, to] of Object.entries(stemMap)) {
+    result = result.replace(new RegExp(from, 'gi'), to)
+  }
+  return result
+}
+
 function scoreChunk(query, chunk) {
   const ql_raw = query.toLowerCase()
   const tokens = ql_raw.replace(/[^\w\s]/g, '').split(/\s+/).filter(w => w.length > 2)
@@ -215,7 +258,8 @@ module.exports = async function handler(req, res) {
       .join(' ')
     const enrichedQuery = effectiveQuery + ' ' + recentContext
     // searchQuery HANYA dari query user saat ini — untuk FTS
-    const searchQuery = effectiveQuery
+    // Dinormalisasi untuk mengatasi keterbatasan FTS simple (tidak ada stemming)
+    const searchQuery = normalizeQuery(effectiveQuery)
 
     // 1. Pasal eksplisit yang disebut (misal "Pasal 13") — filter by POJK dari history
     if (mentionedPasals.length > 0) {
