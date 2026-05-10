@@ -223,37 +223,66 @@ module.exports = async function handler(req, res) {
     // 2. Full-Text Search — jauh lebih akurat dari fetch-all scoring
     if (chunks.length < limit) {
       // Bersihkan query untuk tsquery: ambil kata penting, sambung dengan &
-      const ftsQuery = enrichedQuery
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, ' ')
-        .split(/\s+/)
-        .filter(w => w.length > 2)
-        .slice(0, 8)  // maks 8 kata
-        .join(' | ')  // OR search — lebih toleran
+      // Deteksi pertanyaan tentang daftar/list — ambil dari semua POJK
+      const isListQuery = /daftar|list|apa saja|berapa|semua|seluruh|database|miliki|punya/i.test(enrichedQuery)
 
-      if (ftsQuery) {
-        const { data: ftsChunks } = await db
-          .from('pojk_chunks')
-          .select('id, pasal, bab, bab_title, source, content')
-          .textSearch('fts', ftsQuery, { type: 'plain', config: 'indonesian' })
-          .limit(limit * 2)
+      if (isListQuery) {
+        // Ambil 1 chunk representatif per POJK
+        const { data: pojkList } = await db
+          .from('pojk_list')
+          .select('id, nama, tahun')
+          .order('tahun', { ascending: false })
 
-        // Fallback ke simple config jika indonesian gagal
-        let results = ftsChunks
-        if (!results || results.length === 0) {
-          const { data: fallback } = await db
+        if (pojkList?.length > 0) {
+          for (const pojk of pojkList.slice(0, 20)) {
+            const { data: sample } = await db
+              .from('pojk_chunks')
+              .select('id, pasal, bab, bab_title, source, content')
+              .eq('pojk_id', pojk.id)
+              .limit(1)
+            if (sample?.[0]) chunks.push(sample[0])
+          }
+        }
+      } else {
+        // FTS normal untuk pertanyaan substantif
+        const ftsWords = enrichedQuery
+          .toLowerCase()
+          .replace(/[^a-z0-9 ]/g, ' ')
+          .split(/\s+/)
+          .filter(w => w.length > 3)
+          .slice(0, 6)
+
+        let results = []
+
+        if (ftsWords.length > 0) {
+          // Coba tiap kata secara OR
+          const ftsQuery = ftsWords.join(' | ')
+
+          const { data: r1 } = await db
             .from('pojk_chunks')
             .select('id, pasal, bab, bab_title, source, content')
             .textSearch('fts', ftsQuery, { type: 'plain', config: 'simple' })
-            .limit(limit * 2)
-          results = fallback
+            .limit(30)
+          results = r1 || []
+
+          // Jika kurang, coba per kata terpenting satu per satu
+          if (results.length < 5) {
+            for (const word of ftsWords.slice(0, 3)) {
+              const { data: r2 } = await db
+                .from('pojk_chunks')
+                .select('id, pasal, bab, bab_title, source, content')
+                .textSearch('fts', word, { type: 'plain', config: 'simple' })
+                .limit(15)
+              if (r2?.length > 0) results = [...results, ...r2]
+            }
+          }
         }
 
-        if (results?.length > 0) {
-          // Re-score hasil FTS dengan keyword scoring untuk ranking
+        if (results.length > 0) {
           const newChunks = results
             .filter(c => !chunks.find(x => x.id === c.id))
             .map(c => ({ ...c, score: scoreChunk(enrichedQuery, c) }))
+            .filter(c => c.score > 0)
             .sort((a, b) => b.score - a.score)
             .slice(0, limit - chunks.length)
           chunks = [...chunks, ...newChunks]
