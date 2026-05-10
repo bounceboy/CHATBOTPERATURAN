@@ -304,7 +304,7 @@ module.exports = async function handler(req, res) {
       } else {
         // FTS: gunakan searchQuery (HANYA query user), bukan enrichedQuery
         // Strategi AND-first: presisi tinggi → fallback bertahap
-        const stopWords = new Set(['yang','dan','atau','dalam','pada','untuk','dari','dengan','ini','itu','adalah','oleh','juga','ada','tidak','sudah','akan','dapat','harus','atas','tentang','serta','bahwa','suatu','setiap','antara','apakah','bagaimana','apa'])
+        const stopWords = new Set(['yang','dan','atau','dalam','pada','untuk','dari','dengan','ini','itu','adalah','oleh','juga','ada','tidak','sudah','akan','dapat','harus','atas','tentang','serta','bahwa','suatu','setiap','antara','apakah','bagaimana','apa','berapa','kapan','siapa','dimana','kenapa','mengapa','jelaskan','sebutkan','bagaimana'])
         // Preserve akronim penting (apu, ppt, cdd, edd, dll) dengan min length 2
         // Ganti tanda hubung dengan spasi agar "apu-ppt" → "apu ppt"
         const ftsWords = searchQuery
