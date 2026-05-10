@@ -354,6 +354,44 @@ module.exports = async function handler(req, res) {
       console.error('Embedding error:', embErr.message)
     }
 
+    // 1.6 Sanksi query expansion — jika query menyebut kewajiban/pelanggaran,
+    // otomatis cari pasal sanksi yang relevan dari POJK yang sama
+    const isSanksiQuery = /sanksi|denda|pelanggaran|hukuman|dikenakan|administratif|pidana/i.test(effectiveQuery)
+    const isKewajibanQuery = /wajib|kewajiban|harus|dilarang|persyaratan|ekuitas|modal|laporan/i.test(effectiveQuery)
+
+    if ((isSanksiQuery || isKewajibanQuery) && chunks.length > 0) {
+      try {
+        // Ambil source POJK dari chunks yang sudah ditemukan
+        const activeSources = [...new Set(chunks.map(c => c.source))]
+
+        // Buat query untuk cari pasal sanksi
+        const sanksiQuery = isSanksiQuery
+          ? effectiveQuery  // query sudah menyebut sanksi, pakai langsung
+          : `sanksi administratif pelanggaran ${effectiveQuery.slice(0, 100)}`
+
+        const sanksiEmbedding = await embedQuery(sanksiQuery)
+
+        // Cari pasal sanksi di POJK yang sama
+        for (const source of activeSources.slice(0, 2)) {
+          const { data: sanksiChunks } = await db.rpc('match_pojk_chunks', {
+            query_embedding: sanksiEmbedding,
+            match_count: 3,
+            filter_source: source,
+          })
+          if (sanksiChunks?.length > 0) {
+            const existIds = new Set(chunks.map(c => c.id))
+            const newSanksi = sanksiChunks.filter(c =>
+              !existIds.has(c.id) &&
+              /sanksi|denda|pelanggaran|administratif/i.test(c.content)
+            )
+            chunks = [...chunks, ...newSanksi]
+          }
+        }
+      } catch(sanksiErr) {
+        console.error('Sanksi expansion error:', sanksiErr.message)
+      }
+    }
+
     // 2. Full-Text Search — jauh lebih akurat dari fetch-all scoring
     if (chunks.length < limit) {
       // Bersihkan query untuk tsquery: ambil kata penting, sambung dengan &
