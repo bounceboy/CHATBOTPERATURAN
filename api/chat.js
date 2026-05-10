@@ -363,7 +363,7 @@ module.exports = async function handler(req, res) {
           }
 
           // Bangun AND tsquery: "denda & terlambat & laporan"
-          const toTsquery = (words) => words.join(' & ')
+          const toTsquery = (words) => words.join(' ')  // plain type: spasi = AND (plainto_tsquery)
           // Bangun OR tsquery: "denda | terlambat"
           const toOrQuery = (words) => words.join(' | ')
 
