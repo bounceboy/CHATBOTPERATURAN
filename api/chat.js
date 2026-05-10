@@ -1,4 +1,42 @@
 const { createClient } = require('@supabase/supabase-js')
+const https = require('https')
+
+// Embed query menggunakan OpenAI text-embedding-3-small
+async function embedQuery(text) {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) throw new Error('OPENAI_API_KEY tidak diset')
+
+  const body = JSON.stringify({
+    input: text.slice(0, 8000),
+    model: 'text-embedding-3-small',
+  })
+
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.openai.com',
+      path: '/v1/embeddings',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Length': Buffer.byteLength(body),
+      },
+    }, (res) => {
+      let data = ''
+      res.on('data', chunk => data += chunk)
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data)
+          if (json.error) reject(new Error(json.error.message))
+          else resolve(json.data[0].embedding)
+        } catch(e) { reject(e) }
+      })
+    })
+    req.on('error', reject)
+    req.write(body)
+    req.end()
+  })
+}
 
 function getSupabase() {
   return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
@@ -273,6 +311,25 @@ module.exports = async function handler(req, res) {
       }
       const { data: directChunks } = await q.limit(15)
       if (directChunks?.length > 0) chunks = directChunks
+    }
+
+    // 1.5 Vector similarity search — primary retrieval method
+    // Embed query dan cari chunk paling mirip secara semantik
+    try {
+      const queryEmbedding = await embedQuery(enrichedQuery)
+      const { data: vectorChunks, error: vecErr } = await db.rpc('match_pojk_chunks', {
+        query_embedding: queryEmbedding,
+        match_count: limit,
+        filter_source: null,
+      })
+      if (!vecErr && vectorChunks?.length > 0) {
+        const existIds = new Set(chunks.map(c => c.id))
+        const newChunks = vectorChunks.filter(c => !existIds.has(c.id))
+        chunks = [...chunks, ...newChunks]
+      }
+    } catch(embErr) {
+      console.error('Embedding error:', embErr.message)
+      // Lanjut ke FTS fallback jika embedding gagal
     }
 
     // 2. Full-Text Search — jauh lebih akurat dari fetch-all scoring
