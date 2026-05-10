@@ -387,25 +387,18 @@ module.exports = async function handler(req, res) {
           const { data: r1 } = await buildQ(tsAnd, mentionedPojk, 20)
           results = r1 || []
 
-          // Tahap 1b: selalu cari juga tanpa filter POJK, merge hasilnya
-          // Ini penting agar query baru yang topiknya beda tetap bisa ditemukan
-          if (mentionedPojk.length > 0) {
-            const { data: r1b } = await buildQ(tsAnd, null, 20)
-            if (r1b?.length > 0) {
-              const existIds = new Set(results.map(x => x.id))
-              // Tambahkan hasil tanpa filter, prioritaskan yang tidak ada di hasil filter
-              const newFromGlobal = r1b.filter(x => !existIds.has(x.id))
-              results = [...results, ...newFromGlobal]
-            }
-          } else if (results.length === 0) {
+          // Tahap 1b — tidak pakai filter POJK (mentionedPojk) untuk FTS
+          // Filter POJK hanya untuk query pasal eksplisit (Step 1 di atas)
+          // Biarkan scoring yang menentukan relevansi POJK
+          if (results.length === 0) {
             const { data: r1b } = await buildQ(tsAnd, null, 20)
             results = r1b || []
           }
 
-          // Tahap 2: 3 kata paling penting
+          // Tahap 2: 3 kata paling penting jika AND penuh masih kurang
           if (results.length < 3 && ftsWords.length > 3) {
             const ts3 = toTsquery(ftsWords.slice(0, 3))
-            const { data: r2 } = await buildQ(ts3, mentionedPojk, 20)
+            const { data: r2 } = await buildQ(ts3, null, 20)
             if (r2?.length > 0) {
               const existIds = new Set(results.map(x => x.id))
               results = [...results, ...r2.filter(x => !existIds.has(x.id))]
@@ -419,7 +412,7 @@ module.exports = async function handler(req, res) {
             const wordsToOr = specificWords.length > 0 ? specificWords : ftsWords.slice(0, 2)
             if (wordsToOr.length > 0) {
               const tsOr = toOrQuery(wordsToOr)
-              const { data: r3 } = await buildQ(tsOr, mentionedPojk, 15)
+              const { data: r3 } = await buildQ(tsOr, null, 15)
               if (r3?.length > 0) results = r3
             }
           }
