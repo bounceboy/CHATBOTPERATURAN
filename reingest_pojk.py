@@ -91,6 +91,61 @@ def is_amendment_pojk(text):
     """Deteksi apakah POJK ini adalah peraturan perubahan (amandemen)"""
     return bool(re.search(r'PERUBAHAN\s+(?:KEDUA\s+|KETIGA\s+)?ATAS\s+PERATURAN', text, re.IGNORECASE))
 
+def is_seojk(text, filename=""):
+    """Deteksi apakah ini Surat Edaran OJK (SEOJK) — tidak punya Pasal, tapi punya BAB Romawi"""
+    # Cek dari nama file
+    if re.search(r'SEOJK|SURAT.EDARAN', filename, re.IGNORECASE):
+        return True
+    # Cek dari konten — SEOJK dimulai dengan "Yth." dan tidak punya MEMUTUSKAN
+    if text[:100].strip().startswith('Yth.') and not re.search(r'\bMEMUTUSKAN\b', text):
+        return True
+    # Cek kata kunci di seluruh teks (bukan hanya 500 char pertama)
+    return bool(re.search(r'SURAT\s+EDARAN', text[:3000], re.IGNORECASE))
+
+def chunk_by_bab_romawi(text, source_name):
+    """Chunk SEOJK berdasarkan BAB Romawi (I., II., III., dst)"""
+    chunks = []
+    # Pola: angka romawi diikuti titik dan nama bab di awal baris
+    bab_re = re.compile(
+        r'(?:^|\n)[ \t]*((?:I{1,3}V?|V?I{0,3}|X{0,3})[VX]*(?:I{1,3})?)\. +([A-Z][^\n]{3,60})',
+        re.MULTILINE
+    )
+    matches = list(bab_re.finditer(text))
+    for i, m in enumerate(matches):
+        roman = m.group(1).strip()
+        title = m.group(2).strip()
+        start = m.end()
+        end   = matches[i+1].start() if i+1 < len(matches) else len(text)
+        content = text[start:end].strip()
+        if len(content) < 20:
+            continue
+        # Split content per sub-angka jika panjang
+        # Coba pecah per angka (1., 2., 3.) dalam bab
+        sub_re = re.compile(r'(?:^|\n)[ \t]*(\d+)\.[ \t]+', re.MULTILINE)
+        sub_matches = list(sub_re.finditer(content))
+        if len(sub_matches) >= 3 and len(content) > 2000:
+            # Ada sub-bagian — chunk per kelompok sub
+            for j, sm in enumerate(sub_matches):
+                sub_end = sub_matches[j+1].start() if j+1 < len(sub_matches) else len(content)
+                sub_content = content[sm.start():sub_end].strip()
+                if len(sub_content) > 50:
+                    chunks.append({
+                        "pasal"    : f"BAB {roman} - Angka {sm.group(1)}",
+                        "content"  : sub_content[:3000],
+                        "bab"      : f"BAB {roman}",
+                        "bab_title": title,
+                        "source"   : source_name,
+                    })
+        else:
+            chunks.append({
+                "pasal"    : f"BAB {roman}",
+                "content"  : content[:3000],
+                "bab"      : f"BAB {roman}",
+                "bab_title": title,
+                "source"   : source_name,
+            })
+    return chunks
+
 def chunk_by_pasal(text, source_name, bab_prefix=""):
     chunks = []
     bab_positions = get_bab_positions(text)
@@ -198,15 +253,21 @@ def ingest_file(pdf_path):
     konsideran, batang_tubuh, penjelasan = split_segments(full_text)
 
     all_chunks = []
-    all_chunks += chunk_konsideran(konsideran, meta['nama'])
-    all_chunks += chunk_by_pasal(batang_tubuh, meta['nama'])
-    all_chunks += chunk_by_pasal(penjelasan, meta['nama'], bab_prefix="Penjelasan ")
-
-    pasal_count = len([c for c in all_chunks
-                       if not c['pasal'].startswith('Penjelasan')
-                       and c['bab'] != 'Konsideran'])
-
-    print(f"  → {pasal_count} pasal | {len([c for c in all_chunks if c['pasal'].startswith('Penjelasan')])} penjelasan | {len([c for c in all_chunks if c['bab']=='Konsideran'])} konsideran")
+    pasal_count = 0
+    # Handle SEOJK — struktur berbeda (BAB Romawi, bukan Pasal)
+    if is_seojk(full_text, pdf_path.name):
+        all_chunks += chunk_konsideran(full_text[:2000], meta['nama'])
+        all_chunks += chunk_by_bab_romawi(full_text, meta['nama'])
+        pasal_count = len(all_chunks)
+        print(f"  → {pasal_count} bab/angka (SEOJK format)")
+    else:
+        all_chunks += chunk_konsideran(konsideran, meta['nama'])
+        all_chunks += chunk_by_pasal(batang_tubuh, meta['nama'])
+        all_chunks += chunk_by_pasal(penjelasan, meta['nama'], bab_prefix="Penjelasan ")
+        pasal_count = len([c for c in all_chunks
+                           if not c['pasal'].startswith('Penjelasan')
+                           and c['bab'] != 'Konsideran'])
+        print(f"  → {pasal_count} pasal | {len([c for c in all_chunks if c['pasal'].startswith('Penjelasan')])} penjelasan | {len([c for c in all_chunks if c['bab']=='Konsideran'])} konsideran")
 
     if not all_chunks:
         print("  ✗ Tidak ada chunk")
