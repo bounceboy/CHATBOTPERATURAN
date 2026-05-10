@@ -257,13 +257,40 @@ module.exports = async function handler(req, res) {
       } else {
         // FTS: gunakan searchQuery (HANYA query user), bukan enrichedQuery
         // Strategi AND-first: presisi tinggi → fallback bertahap
-        const stopWords = new Set(['yang','dan','atau','dalam','pada','untuk','dari','dengan','ini','itu','adalah','ke','di','oleh','juga','ada','tidak','sudah','akan','dapat','harus','atas','tentang','serta','bahwa','suatu','setiap','antara','apakah','bagaimana','berapa','apa'])
+        const stopWords = new Set(['yang','dan','atau','dalam','pada','untuk','dari','dengan','ini','itu','adalah','oleh','juga','ada','tidak','sudah','akan','dapat','harus','atas','tentang','serta','bahwa','suatu','setiap','antara','apakah','bagaimana','apa'])
+        // Preserve akronim penting (apu, ppt, cdd, edd, dll) dengan min length 2
+        // Ganti tanda hubung dengan spasi agar "apu-ppt" → "apu ppt"
         const ftsWords = searchQuery
           .toLowerCase()
+          .replace(/-/g, ' ')
           .replace(/[^a-z0-9 ]/g, ' ')
           .split(/\s+/)
-          .filter(w => w.length > 3 && !stopWords.has(w))
-          .slice(0, 5)
+          .filter(w => w.length > 2 && !stopWords.has(w))
+          .slice(0, 6)
+
+        // Ekspansi akronim domain — tambah sinonim yang kemungkinan ada di database
+        const domainExpand = {
+          'apu': ['pencucian','uang','apu'],
+          'ppt': ['pendanaan','terorisme','ppt'],
+          'cdd': ['identifikasi','nasabah','cdd'],
+          'edd': ['enhanced','berisiko','edd'],
+          'tppu': ['pencucian','uang','tppu'],
+          'tppt': ['pendanaan','terorisme','tppt'],
+          'rbc': ['risk','based','capital','rbc'],
+          'gcg': ['tata','kelola','gcg'],
+          'uus': ['unit','syariah','uus'],
+          'dps': ['dewan','pengawas','syariah'],
+        }
+        const expandedWords = [...ftsWords]
+        for (const w of ftsWords) {
+          if (domainExpand[w]) {
+            for (const syn of domainExpand[w]) {
+              if (!expandedWords.includes(syn)) expandedWords.push(syn)
+            }
+          }
+        }
+        // Gunakan expanded words untuk FTS jika ada ekspansi, tapi tetap batasi
+        const ftsWordsExpanded = expandedWords.slice(0, 8)
 
         let results = []
 
@@ -282,7 +309,10 @@ module.exports = async function handler(req, res) {
           }
 
           // Tahap 1: AND search di POJK yang disebut di history (paling presisi)
-          const ftsAnd = ftsWords.join(' ')
+          // Jika ada ekspansi akronim, coba dengan kata ekspansi yang paling spesifik
+          const ftsAnd = ftsWords.length <= 2 && ftsWordsExpanded.length > ftsWords.length
+            ? ftsWordsExpanded.slice(0, 4).join(' ')
+            : ftsWords.join(' ')
           const { data: r1 } = await buildFtsQuery(db, ftsAnd, mentionedPojk, 20)
           results = r1 || []
 
