@@ -248,7 +248,7 @@ module.exports = async function handler(req, res) {
     const db = getSupabase()
     const mentionedPasals = extractPasalNumbers(effectiveQuery)
     const mentionedPojk = extractMentionedPojk(messages)
-    const limit = file ? 12 : 8
+    const limit = file ? 12 : 10
     let chunks = []
 
     // enrichedQuery HANYA untuk scoring, TIDAK untuk FTS search
@@ -397,7 +397,7 @@ module.exports = async function handler(req, res) {
           const newChunks = results
             .filter(c => !chunks.find(x => x.id === c.id))
             .map(c => ({ ...c, score: scoreChunk(enrichedQuery, c) }))
-            .filter(c => c.score > 1) // threshold minimal — buang chunk yg benar-benar tidak relevan
+            .filter(c => c.score > 0) // threshold minimal
             .sort((a, b) => b.score - a.score)
             .slice(0, limit - chunks.length)
           chunks = [...chunks, ...newChunks]
