@@ -392,6 +392,43 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // 1.7 Cross-POJK reference retrieval
+    // Jika chunk yang ditemukan mereferensikan POJK lain, ambil chunk dari POJK tersebut
+    if (chunks.length > 0) {
+      try {
+        const allContent = chunks.map(c => c.content).join(' ')
+        // Deteksi referensi ke POJK lain dalam konten chunk
+        const crossRefs = [...allContent.matchAll(/POJK\s+(?:Nomor\s+)?(\d+)\/POJK\.\d+\/(\d{4})|POJK\s+(?:No\.?\s+)?(\d+)\s+Tahun\s+(\d{4})/gi)]
+        const referencedSources = new Set()
+        for (const m of crossRefs) {
+          const num = m[1] || m[3]
+          const year = m[2] || m[4]
+          if (num && year) {
+            referencedSources.add(`POJK No. ${num} Tahun ${year}`)
+          }
+        }
+        // Hapus source yang sudah ada di chunks
+        const existingSources = new Set(chunks.map(c => c.source))
+        const newSources = [...referencedSources].filter(s => !existingSources.has(s))
+
+        // Ambil chunk dari POJK yang direferensikan (max 2 POJK, 3 chunk per POJK)
+        for (const refSource of newSources.slice(0, 2)) {
+          const refEmbedding = await embedQuery(`${effectiveQuery} ${refSource}`)
+          const { data: refChunks } = await db.rpc('match_pojk_chunks', {
+            query_embedding: refEmbedding,
+            match_count: 3,
+            filter_source: refSource,
+          })
+          if (refChunks?.length > 0) {
+            const existIds = new Set(chunks.map(c => c.id))
+            chunks = [...chunks, ...refChunks.filter(c => !existIds.has(c.id))]
+          }
+        }
+      } catch(crossErr) {
+        console.error('Cross-POJK retrieval error:', crossErr.message)
+      }
+    }
+
     // 2. Full-Text Search — jauh lebih akurat dari fetch-all scoring
     if (chunks.length < limit) {
       // Bersihkan query untuk tsquery: ambil kata penting, sambung dengan &
