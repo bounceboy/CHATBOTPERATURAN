@@ -343,53 +343,74 @@ module.exports = async function handler(req, res) {
 
         if (ftsWords.length > 0) {
           // Helper: build query dengan optional filter POJK dari context history
-          const buildFtsQuery = (db, ftsStr, pojkFilter, lim) => {
-            let q = db
-              .from('pojk_chunks')
+          // Helper: jalankan FTS menggunakan to_tsquery langsung via RPC
+          // Ini lebih reliable daripada Supabase textSearch() yang perilakunya beda
+          const runFts = async (tsquery, pojkFilter, lim) => {
+            // Gunakan .rpc() untuk panggil fungsi SQL langsung
+            // Fallback ke textSearch jika RPC tidak tersedia
+            try {
+              let q = db.from('pojk_chunks')
+                .select('id, pasal, bab, bab_title, source, content')
+                .filter('fts', 'fts', tsquery)
+              if (pojkFilter && pojkFilter.length > 0 && pojkFilter.length <= 3) {
+                q = q.in('source', pojkFilter)
+              }
+              const { data } = await q.limit(lim)
+              return data || []
+            } catch {
+              return []
+            }
+          }
+
+          // Bangun AND tsquery: "denda & terlambat & laporan"
+          const toTsquery = (words) => words.join(' & ')
+          // Bangun OR tsquery: "denda | terlambat"
+          const toOrQuery = (words) => words.join(' | ')
+
+          // Tahap 1: AND query (semua kata wajib ada) — cari di POJK dari history dulu
+          const andWords = ftsWords.length <= 2 && ftsWordsExpanded.length > ftsWords.length
+            ? ftsWordsExpanded.slice(0, 4)
+            : ftsWords
+          const tsAnd = toTsquery(andWords)
+
+          // Gunakan textSearch dengan plain type + & operator
+          const buildQ = (tsq, pojkFilter, lim) => {
+            let q = db.from('pojk_chunks')
               .select('id, pasal, bab, bab_title, source, content')
-              .textSearch('fts', ftsStr, { type: 'websearch', config: 'simple' })
-            // Jika ada konteks POJK dari history, prioritaskan POJK tersebut
+              .textSearch('fts', tsq, { type: 'plain', config: 'simple' })
             if (pojkFilter && pojkFilter.length > 0 && pojkFilter.length <= 3) {
               q = q.in('source', pojkFilter)
             }
             return q.limit(lim)
           }
 
-          // Di websearch mode: spasi = OR, tanda kutip = phrase, + = AND
-          // Gunakan format: "kata1" "kata2" agar setiap kata wajib ada (phrase per kata)
-          const toAndQuery = (words) => words.map(w => `"${w}"`).join(' ')
-
-          // Tahap 1: AND search (semua kata wajib ada)
-          const ftsAnd = ftsWords.length <= 2 && ftsWordsExpanded.length > ftsWords.length
-            ? toAndQuery(ftsWordsExpanded.slice(0, 4))
-            : toAndQuery(ftsWords)
-          const { data: r1 } = await buildFtsQuery(db, ftsAnd, mentionedPojk, 20)
+          const { data: r1 } = await buildQ(tsAnd, mentionedPojk, 20)
           results = r1 || []
 
-          // Tahap 1b: jika dengan filter POJK kosong, coba tanpa filter (mungkin POJK lain relevan)
+          // Tahap 1b: tanpa filter POJK jika kosong
           if (results.length === 0 && mentionedPojk.length > 0) {
-            const { data: r1b } = await buildFtsQuery(db, ftsAnd, null, 20)
+            const { data: r1b } = await buildQ(tsAnd, null, 20)
             results = r1b || []
           }
 
-          // Tahap 2: 3 kata paling penting jika AND penuh masih kurang
+          // Tahap 2: 3 kata paling penting
           if (results.length < 3 && ftsWords.length > 3) {
-            const fts3 = toAndQuery(ftsWords.slice(0, 3))
-            const { data: r2 } = await buildFtsQuery(db, fts3, mentionedPojk, 20)
+            const ts3 = toTsquery(ftsWords.slice(0, 3))
+            const { data: r2 } = await buildQ(ts3, mentionedPojk, 20)
             if (r2?.length > 0) {
               const existIds = new Set(results.map(x => x.id))
               results = [...results, ...r2.filter(x => !existIds.has(x.id))]
             }
           }
 
-          // Tahap 3: OR hanya jika benar-benar kosong — buang kata umum dulu
+          // Tahap 3: OR jika benar-benar kosong
           if (results.length === 0) {
             const commonWords = new Set(['laporan','pasal','ketentuan','peraturan','perusahaan','asuransi','pihak','tahun','nomor'])
             const specificWords = ftsWords.filter(w => !commonWords.has(w))
             const wordsToOr = specificWords.length > 0 ? specificWords : ftsWords.slice(0, 2)
             if (wordsToOr.length > 0) {
-              const ftsOr = wordsToOr.join(' ')  // websearch: spasi = OR
-              const { data: r3 } = await buildFtsQuery(db, ftsOr, mentionedPojk, 15)
+              const tsOr = toOrQuery(wordsToOr)
+              const { data: r3 } = await buildQ(tsOr, mentionedPojk, 15)
               if (r3?.length > 0) results = r3
             }
           }
