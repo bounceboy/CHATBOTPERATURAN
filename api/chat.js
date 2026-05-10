@@ -23,13 +23,19 @@ function extractMentionedPojk(messages) {
 }
 
 function scoreChunk(query, chunk) {
-  const tokens = query.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(w => w.length > 2)
-  const text = (chunk.content + ' ' + chunk.pasal + ' ' + (chunk.bab_title || '') + ' ' + (chunk.bab || '')).toLowerCase()
+  const ql_raw = query.toLowerCase()
+  const tokens = ql_raw.replace(/[^\w\s]/g, '').split(/\s+/).filter(w => w.length > 2)
+  const text = (chunk.content + ' ' + chunk.pasal + ' ' + (chunk.bab_title || '') + ' ' + (chunk.bab || '') + ' ' + (chunk.source || '')).toLowerCase()
   let score = 0
   for (const t of tokens) {
     if (text.includes(t)) score += 1
     if (chunk.pasal?.toLowerCase().includes(t)) score += 3
+    if (chunk.source?.toLowerCase().includes(t)) score += 2
   }
+  // Bonus untuk exact phrase match (2+ kata berturutan)
+  const bigrams = []
+  for (let i = 0; i < tokens.length - 1; i++) bigrams.push(tokens[i] + ' ' + tokens[i+1])
+  for (const bg of bigrams) { if (text.includes(bg)) score += 4 }
   const domainMap = {
     'cdd':['cdd','identifikasi','verifikasi','nasabah','hubungan usaha'],
     'edd':['edd','enhanced','berisiko tinggi','pep'],
@@ -58,6 +64,15 @@ function scoreChunk(query, chunk) {
     'kesehatan':['kesehatan keuangan','tingkat kesehatan','rbc','risk based capital'],
     'produk':['produk asuransi','pemasaran','saluran distribusi','pialang'],
     'laporan keuangan':['laporan keuangan','akuntansi','standar akuntansi','ifrs'],
+    'teknologi informasi':['teknologi informasi','ti','sistem informasi','infrastruktur ti','keamanan informasi'],
+    'komite pengarah':['komite pengarah','komite ti','komite teknologi','pengawas ti','steering committee'],
+    'tata kelola ti':['tata kelola ti','it governance','pengelolaan ti','risiko ti','ljknb'],
+    'tata kelola':['tata kelola','gcg','good corporate governance','direksi','dewan komisaris','komisaris'],
+    'seojk':['surat edaran','seojk','se ojk','pedoman','panduan'],
+    'audit':['audit','internal audit','auditor','pemeriksaan','pengendalian intern'],
+    'manajemen risiko':['manajemen risiko','risk management','mitigasi','pengelolaan risiko'],
+    'outsourcing':['outsourcing','alih daya','penyedia jasa','vendor','pihak ketiga'],
+    'business continuity':['business continuity','bcp','drp','disaster recovery','kelangsungan usaha'],
   }
   const ql = query.toLowerCase()
   for (const [kw, related] of Object.entries(domainMap)) {
@@ -182,50 +197,82 @@ module.exports = async function handler(req, res) {
     const db = getSupabase()
     const mentionedPasals = extractPasalNumbers(effectiveQuery)
     const mentionedPojk = extractMentionedPojk(messages)
+    const limit = file ? 12 : 8
     let chunks = []
 
-    // Ambil pasal yang disebut eksplisit
-    // Jika ada POJK yang disebut di history, filter hanya dari POJK tersebut
+    // Gabungkan query dengan pesan terakhir untuk konteks lebih kaya
+    const recentContext = (messages || []).slice(-2)
+      .map(m => typeof m.content === 'string' ? m.content.slice(0, 300) : '')
+      .join(' ')
+    const enrichedQuery = effectiveQuery + ' ' + recentContext
+
+    // 1. Pasal eksplisit yang disebut (misal "Pasal 13") — filter by POJK dari history
     if (mentionedPasals.length > 0) {
       const pasalStrings = mentionedPasals.map(n => `Pasal ${n}`)
       let q = db
         .from('pojk_chunks')
         .select('id, pasal, bab, bab_title, source, content')
         .in('pasal', pasalStrings)
-
-      // Filter by source jika ada POJK spesifik di history
       if (mentionedPojk.length > 0 && mentionedPojk.length <= 3) {
         q = q.in('source', mentionedPojk)
       }
-
-      const { data: directChunks } = await q.limit(20)
-      if (directChunks && directChunks.length > 0) chunks = directChunks
+      const { data: directChunks } = await q.limit(15)
+      if (directChunks?.length > 0) chunks = directChunks
     }
 
-    // Keyword search untuk konteks tambahan
-    // Untuk file analysis, ambil lebih banyak chunks
-    const limit = file ? 12 : 8
-
-    // Gabungkan query dengan 2 pesan terakhir untuk konteks lebih baik
-    const recentContext = (messages || []).slice(-2)
-      .map(m => typeof m.content === 'string' ? m.content : '')
-      .join(' ')
-    const enrichedQuery = effectiveQuery + ' ' + recentContext
-
+    // 2. Full-Text Search — jauh lebih akurat dari fetch-all scoring
     if (chunks.length < limit) {
+      // Bersihkan query untuk tsquery: ambil kata penting, sambung dengan &
+      const ftsQuery = enrichedQuery
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length > 2)
+        .slice(0, 8)  // maks 8 kata
+        .join(' | ')  // OR search — lebih toleran
+
+      if (ftsQuery) {
+        const { data: ftsChunks } = await db
+          .from('pojk_chunks')
+          .select('id, pasal, bab, bab_title, source, content')
+          .textSearch('fts', ftsQuery, { type: 'plain', config: 'indonesian' })
+          .limit(limit * 2)
+
+        // Fallback ke simple config jika indonesian gagal
+        let results = ftsChunks
+        if (!results || results.length === 0) {
+          const { data: fallback } = await db
+            .from('pojk_chunks')
+            .select('id, pasal, bab, bab_title, source, content')
+            .textSearch('fts', ftsQuery, { type: 'plain', config: 'simple' })
+            .limit(limit * 2)
+          results = fallback
+        }
+
+        if (results?.length > 0) {
+          // Re-score hasil FTS dengan keyword scoring untuk ranking
+          const newChunks = results
+            .filter(c => !chunks.find(x => x.id === c.id))
+            .map(c => ({ ...c, score: scoreChunk(enrichedQuery, c) }))
+            .sort((a, b) => b.score - a.score)
+            .slice(0, limit - chunks.length)
+          chunks = [...chunks, ...newChunks]
+        }
+      }
+    }
+
+    // 3. Fallback: fetch-all scoring jika FTS kosong (database lama tanpa kolom fts)
+    if (chunks.length === 0) {
       const { data: allChunks } = await db
         .from('pojk_chunks')
         .select('id, pasal, bab, bab_title, source, content')
-        .limit(1000)
-
-      if (allChunks && allChunks.length > 0) {
-        const scored = allChunks
-          .filter(c => !chunks.find(x => x.id === c.id))
+        .limit(500)
+      if (allChunks?.length > 0) {
+        chunks = allChunks
           .map(c => ({ ...c, score: scoreChunk(enrichedQuery, c) }))
           .filter(c => c.score > 0)
           .sort((a, b) => b.score - a.score)
-          .slice(0, limit - chunks.length)
-        chunks = [...chunks, ...scored]
+          .slice(0, limit)
       }
     }
 
