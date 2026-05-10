@@ -11,12 +11,20 @@ function extractPasalNumbers(query) {
 
 function extractMentionedPojk(messages) {
   // Ekstrak nama POJK yang sudah disebut di conversation history
+  // Support berbagai format penulisan POJK
   const pojkSet = new Set()
-  const pojkRe = /POJK\s+(?:No\.?\s+)?(?:Nomor\s+)?(\d+)\s+Tahun\s+(\d{4})/gi
+  const patterns = [
+    /POJK\s+(?:No\.?\s+)?(?:Nomor\s+)?(\d+)\s+Tahun\s+(\d{4})/gi,
+    /Peraturan\s+OJK\s+(?:No(?:mor)?\.?\s+)?(\d+)[\s/]+(\d{4})/gi,
+    /POJK\s+(\d+)[\s/]+(\d{4})/gi,
+    /No\.?\s+(\d+)\s+Tahun\s+(\d{4})/gi,
+  ]
   for (const msg of (messages || [])) {
     const text = typeof msg.content === 'string' ? msg.content : ''
-    for (const m of text.matchAll(pojkRe)) {
-      pojkSet.add(`POJK No. ${m[1]} Tahun ${m[2]}`)
+    for (const re of patterns) {
+      for (const m of text.matchAll(re)) {
+        pojkSet.add(`POJK No. ${m[1]} Tahun ${m[2]}`)
+      }
     }
   }
   return [...pojkSet]
@@ -200,11 +208,14 @@ module.exports = async function handler(req, res) {
     const limit = file ? 12 : 8
     let chunks = []
 
-    // Gabungkan query dengan pesan terakhir untuk konteks lebih kaya
+    // enrichedQuery HANYA untuk scoring, TIDAK untuk FTS search
+    // Ini mencegah kata-kata dari history meracuni retrieval
     const recentContext = (messages || []).slice(-2)
-      .map(m => typeof m.content === 'string' ? m.content.slice(0, 300) : '')
+      .map(m => typeof m.content === 'string' ? m.content.slice(0, 200) : '')
       .join(' ')
     const enrichedQuery = effectiveQuery + ' ' + recentContext
+    // searchQuery HANYA dari query user saat ini — untuk FTS
+    const searchQuery = effectiveQuery
 
     // 1. Pasal eksplisit yang disebut (misal "Pasal 13") — filter by POJK dari history
     if (mentionedPasals.length > 0) {
@@ -244,56 +255,72 @@ module.exports = async function handler(req, res) {
           }
         }
       } else {
-        // FTS normal untuk pertanyaan substantif
-        const ftsWords = enrichedQuery
+        // FTS: gunakan searchQuery (HANYA query user), bukan enrichedQuery
+        // Strategi AND-first: presisi tinggi → fallback bertahap
+        const stopWords = new Set(['yang','dan','atau','dalam','pada','untuk','dari','dengan','ini','itu','adalah','ke','di','oleh','juga','ada','tidak','sudah','akan','dapat','harus','atas','tentang','serta','bahwa','suatu','setiap','antara','apakah','bagaimana','berapa','apa'])
+        const ftsWords = searchQuery
           .toLowerCase()
           .replace(/[^a-z0-9 ]/g, ' ')
           .split(/\s+/)
-          .filter(w => w.length > 3)
-          .slice(0, 6)
+          .filter(w => w.length > 3 && !stopWords.has(w))
+          .slice(0, 5)
 
         let results = []
 
         if (ftsWords.length > 0) {
-          // websearch type support OR operator secara natural
-          const ftsQuery = ftsWords.join(' OR ')
-
-          const { data: r1 } = await db
-            .from('pojk_chunks')
-            .select('id, pasal, bab, bab_title, source, content')
-            .textSearch('fts', ftsQuery, { type: 'websearch', config: 'simple' })
-            .limit(30)
-          results = r1 || []
-
-          // Jika kurang, coba AND search (lebih ketat tapi lebih relevan)
-          if (results.length < 5) {
-            const ftsAnd = ftsWords.slice(0, 4).join(' ')
-            const { data: r2 } = await db
+          // Helper: build query dengan optional filter POJK dari context history
+          const buildFtsQuery = (db, ftsStr, pojkFilter, lim) => {
+            let q = db
               .from('pojk_chunks')
               .select('id, pasal, bab, bab_title, source, content')
-              .textSearch('fts', ftsAnd, { type: 'websearch', config: 'simple' })
-              .limit(20)
-            if (r2?.length > 0) results = [...results, ...r2]
+              .textSearch('fts', ftsStr, { type: 'websearch', config: 'simple' })
+            // Jika ada konteks POJK dari history, prioritaskan POJK tersebut
+            if (pojkFilter && pojkFilter.length > 0 && pojkFilter.length <= 3) {
+              q = q.in('source', pojkFilter)
+            }
+            return q.limit(lim)
           }
 
-          // Last resort: cari per kata terpenting
-          if (results.length < 3) {
-            for (const word of ftsWords.slice(0, 3)) {
-              const { data: r3 } = await db
-                .from('pojk_chunks')
-                .select('id, pasal, bab, bab_title, source, content')
-                .textSearch('fts', word, { type: 'websearch', config: 'simple' })
-                .limit(10)
-              if (r3?.length > 0) results = [...results, ...r3]
+          // Tahap 1: AND search di POJK yang disebut di history (paling presisi)
+          const ftsAnd = ftsWords.join(' ')
+          const { data: r1 } = await buildFtsQuery(db, ftsAnd, mentionedPojk, 20)
+          results = r1 || []
+
+          // Tahap 1b: jika dengan filter POJK kosong, coba tanpa filter (mungkin POJK lain relevan)
+          if (results.length === 0 && mentionedPojk.length > 0) {
+            const { data: r1b } = await buildFtsQuery(db, ftsAnd, null, 20)
+            results = r1b || []
+          }
+
+          // Tahap 2: 3 kata paling penting jika AND penuh masih kurang
+          if (results.length < 3 && ftsWords.length > 3) {
+            const fts3 = ftsWords.slice(0, 3).join(' ')
+            const { data: r2 } = await buildFtsQuery(db, fts3, mentionedPojk, 20)
+            if (r2?.length > 0) {
+              const existIds = new Set(results.map(x => x.id))
+              results = [...results, ...r2.filter(x => !existIds.has(x.id))]
+            }
+          }
+
+          // Tahap 3: OR hanya jika benar-benar kosong — buang kata umum dulu
+          if (results.length === 0) {
+            const commonWords = new Set(['laporan','pasal','ketentuan','peraturan','perusahaan','asuransi','pihak','tahun','nomor'])
+            const specificWords = ftsWords.filter(w => !commonWords.has(w))
+            const wordsToOr = specificWords.length > 0 ? specificWords : ftsWords.slice(0, 2)
+            if (wordsToOr.length > 0) {
+              const ftsOr = wordsToOr.join(' OR ')
+              const { data: r3 } = await buildFtsQuery(db, ftsOr, mentionedPojk, 15)
+              if (r3?.length > 0) results = r3
             }
           }
         }
 
         if (results.length > 0) {
+          // Scoring menggunakan enrichedQuery (inkl. konteks history) — tapi pool sudah bersih dari AND
           const newChunks = results
             .filter(c => !chunks.find(x => x.id === c.id))
             .map(c => ({ ...c, score: scoreChunk(enrichedQuery, c) }))
-            .filter(c => c.score > 0)
+            .filter(c => c.score > 1) // threshold minimal — buang chunk yg benar-benar tidak relevan
             .sort((a, b) => b.score - a.score)
             .slice(0, limit - chunks.length)
           chunks = [...chunks, ...newChunks]
@@ -357,16 +384,15 @@ INSTRUKSI:
 - Jika tidak dapat membaca isi dokumen, sampaikan dengan jelas`
       : `Kamu adalah konsultan regulasi OJK yang ahli dalam peraturan sektor perasuransian dan jasa keuangan Indonesia.
 
-INSTRUKSI:
-- Jawab HANYA berdasarkan konteks pasal yang diberikan di bawah
-- DILARANG mengarang, mengasumsikan, atau mengutip pasal yang tidak ada dalam konteks
-- Jika user bertanya tentang pasal tertentu (misalnya "Pasal 13"), cari HANYA di konteks yang tersedia
-- Jika ada beberapa POJK dengan nomor pasal yang sama, gunakan yang paling relevan dengan topik percakapan
-- Selalu sebutkan nomor pasal dan nama POJK lengkap sebagai sumber
-- Jika user meminta "bunyi" atau "isi" suatu pasal, KUTIP LANGSUNG teks lengkapnya dari konteks
-- Jika pasal yang diminta tidak ada dalam konteks, katakan dengan jelas dan jangan mengarang
-- Pertahankan konsistensi dengan jawaban sebelumnya dalam percakapan
-- Gunakan Bahasa Indonesia yang formal namun mudah dipahami`
+INSTRUKSI WAJIB — DILARANG DILANGGAR:
+1. Jawab HANYA berdasarkan teks dari konteks pasal yang diberikan. TIDAK BOLEH menggunakan pengetahuan di luar konteks.
+2. DILARANG KERAS menyebut nomor angka (Rp, %, hari, dsb) yang tidak muncul verbatim di konteks. Jika angkanya tidak ada di konteks, jangan sebut.
+3. DILARANG menyebut "Pasal X ayat (Y)" jika isi pasal/ayat tersebut tidak ada dalam konteks. Cek dulu sebelum menyebut.
+4. Jika konteks yang diberikan tidak mengandung jawaban atas pertanyaan user, jawab: "Informasi tentang [topik] tidak ditemukan dalam database POJK yang tersedia. Silakan merujuk langsung ke teks peraturan resmi."
+5. Selalu cantumkan sumber tepat: nama POJK lengkap dan nomor pasal dari konteks.
+6. Jika user meminta "bunyi" atau "isi" pasal, KUTIP LANGSUNG dari konteks — jangan parafrase.
+7. Pertahankan konsistensi dengan jawaban sebelumnya dalam percakapan.
+8. Gunakan Bahasa Indonesia yang formal namun mudah dipahami.`
 
     // Build messages
     let apiMessages
