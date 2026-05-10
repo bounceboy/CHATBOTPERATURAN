@@ -355,11 +355,14 @@ module.exports = async function handler(req, res) {
             return q.limit(lim)
           }
 
-          // Tahap 1: AND search di POJK yang disebut di history (paling presisi)
-          // Jika ada ekspansi akronim, coba dengan kata ekspansi yang paling spesifik
+          // Di websearch mode: spasi = OR, tanda kutip = phrase, + = AND
+          // Gunakan format: "kata1" "kata2" agar setiap kata wajib ada (phrase per kata)
+          const toAndQuery = (words) => words.map(w => `"${w}"`).join(' ')
+
+          // Tahap 1: AND search (semua kata wajib ada)
           const ftsAnd = ftsWords.length <= 2 && ftsWordsExpanded.length > ftsWords.length
-            ? ftsWordsExpanded.slice(0, 4).join(' ')
-            : ftsWords.join(' ')
+            ? toAndQuery(ftsWordsExpanded.slice(0, 4))
+            : toAndQuery(ftsWords)
           const { data: r1 } = await buildFtsQuery(db, ftsAnd, mentionedPojk, 20)
           results = r1 || []
 
@@ -371,7 +374,7 @@ module.exports = async function handler(req, res) {
 
           // Tahap 2: 3 kata paling penting jika AND penuh masih kurang
           if (results.length < 3 && ftsWords.length > 3) {
-            const fts3 = ftsWords.slice(0, 3).join(' ')
+            const fts3 = toAndQuery(ftsWords.slice(0, 3))
             const { data: r2 } = await buildFtsQuery(db, fts3, mentionedPojk, 20)
             if (r2?.length > 0) {
               const existIds = new Set(results.map(x => x.id))
@@ -385,7 +388,7 @@ module.exports = async function handler(req, res) {
             const specificWords = ftsWords.filter(w => !commonWords.has(w))
             const wordsToOr = specificWords.length > 0 ? specificWords : ftsWords.slice(0, 2)
             if (wordsToOr.length > 0) {
-              const ftsOr = wordsToOr.join(' OR ')
+              const ftsOr = wordsToOr.join(' ')  // websearch: spasi = OR
               const { data: r3 } = await buildFtsQuery(db, ftsOr, mentionedPojk, 15)
               if (r3?.length > 0) results = r3
             }
