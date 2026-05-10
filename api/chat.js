@@ -255,25 +255,36 @@ module.exports = async function handler(req, res) {
         let results = []
 
         if (ftsWords.length > 0) {
-          // Coba tiap kata secara OR
-          const ftsQuery = ftsWords.join(' | ')
+          // websearch type support OR operator secara natural
+          const ftsQuery = ftsWords.join(' OR ')
 
           const { data: r1 } = await db
             .from('pojk_chunks')
             .select('id, pasal, bab, bab_title, source, content')
-            .textSearch('fts', ftsQuery, { type: 'plain', config: 'simple' })
+            .textSearch('fts', ftsQuery, { type: 'websearch', config: 'simple' })
             .limit(30)
           results = r1 || []
 
-          // Jika kurang, coba per kata terpenting satu per satu
+          // Jika kurang, coba AND search (lebih ketat tapi lebih relevan)
           if (results.length < 5) {
+            const ftsAnd = ftsWords.slice(0, 4).join(' ')
+            const { data: r2 } = await db
+              .from('pojk_chunks')
+              .select('id, pasal, bab, bab_title, source, content')
+              .textSearch('fts', ftsAnd, { type: 'websearch', config: 'simple' })
+              .limit(20)
+            if (r2?.length > 0) results = [...results, ...r2]
+          }
+
+          // Last resort: cari per kata terpenting
+          if (results.length < 3) {
             for (const word of ftsWords.slice(0, 3)) {
-              const { data: r2 } = await db
+              const { data: r3 } = await db
                 .from('pojk_chunks')
                 .select('id, pasal, bab, bab_title, source, content')
-                .textSearch('fts', word, { type: 'plain', config: 'simple' })
-                .limit(15)
-              if (r2?.length > 0) results = [...results, ...r2]
+                .textSearch('fts', word, { type: 'websearch', config: 'simple' })
+                .limit(10)
+              if (r3?.length > 0) results = [...results, ...r3]
             }
           }
         }
