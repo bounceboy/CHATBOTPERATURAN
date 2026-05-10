@@ -279,7 +279,10 @@ module.exports = async function handler(req, res) {
     if (chunks.length < limit) {
       // Bersihkan query untuk tsquery: ambil kata penting, sambung dengan &
       // Deteksi pertanyaan tentang daftar/list — ambil dari semua POJK
-      const isListQuery = /daftar|list|apa saja|berapa|semua|seluruh|database|miliki|punya/i.test(enrichedQuery)
+      // isListQuery: hanya untuk pertanyaan tentang daftar/inventori POJK
+      // "berapa denda" bukan list query — harus masuk FTS
+      const isListQuery = /daftar|list|apa saja|semua|seluruh|database|miliki|punya/i.test(enrichedQuery)
+        || (/berapa/i.test(enrichedQuery) && /pojk|peraturan|regulasi/i.test(enrichedQuery))
 
       if (isListQuery) {
         // Ambil 1 chunk representatif per POJK
