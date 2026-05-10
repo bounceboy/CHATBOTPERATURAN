@@ -316,7 +316,7 @@ module.exports = async function handler(req, res) {
     // 1.5 Vector similarity search — primary retrieval method
     // Embed query dan cari chunk paling mirip secara semantik
     try {
-      const queryEmbedding = await embedQuery(enrichedQuery)
+      const queryEmbedding = await embedQuery(effectiveQuery)  // embed query murni, tanpa history
       const { data: vectorChunks, error: vecErr } = await db.rpc('match_pojk_chunks', {
         query_embedding: queryEmbedding,
         match_count: limit,
