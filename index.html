@@ -122,7 +122,7 @@ input, textarea { font-family: inherit; color: inherit; }
 .brand-mark { display:flex; align-items:center; gap:10px; }
 .brand-glyph { width:30px; height:30px; background:var(--ink); color:var(--bg); border-radius:8px; display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-size:18px; position:relative; }
 .brand-glyph::after { content:''; position:absolute; width:6px; height:6px; background:var(--accent); border-radius:50%; bottom:-2px; right:-2px; }
-.brand-name { font-family:var(--font-display); font-size:14px; letter-spacing:.08em; font-weight:400; font-style:italic; }
+.brand-name { font-family:var(--font-body); font-size:13px; letter-spacing:.02em; font-weight:700; font-style:normal; display:flex; align-items:center; gap:8px; }
 .aside-meta { font-family:var(--font-mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); display:flex; align-items:center; gap:8px; }
 .aside-meta .live-dot { width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 0 3px rgba(47,125,91,.18); }
 .aside-hero { position:relative; z-index:2; margin-top:auto; margin-bottom:auto; display:flex; flex-direction:column; gap:26px; max-width:580px; }
@@ -408,7 +408,7 @@ input, textarea { font-family: inherit; color: inherit; }
     <div class="aurora a2"></div>
     <div class="aside-top">
       <div class="brand-mark">
-        <span class="brand-name">CORE</span>
+        <span class="brand-name">CORE <span style="font-weight:400;font-style:italic;font-family:var(--font-display);font-size:13px;letter-spacing:0;">· Comprehensive Oversight Regulatory Explorer</span></span>
       </div>
       <div class="aside-meta">
         <span class="live-dot"></span>
@@ -464,7 +464,7 @@ input, textarea { font-family: inherit; color: inherit; }
     <div id="sidebar-inner">
       <div class="sidebar-top">
         <div class="brand-mark">
-          <span class="brand-name">CORE</span>
+          <span class="brand-name">CORE <span style="font-weight:400;font-style:italic;font-family:var(--font-display);font-size:13px;letter-spacing:0;">· Comprehensive Oversight Regulatory Explorer</span></span>
         </div>
         <button class="icon-btn" onclick="newChat()" title="Chat baru">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
