@@ -340,11 +340,25 @@ module.exports = async function handler(req, res) {
     try {
       const queryEmbedding = await embedQuery(enrichedEffectiveQuery)
 
-      // Deteksi apakah user menyebut POJK spesifik di query (misal "pojk 11 2023")
-      const pojkInQuery = effectiveQuery.match(/(?:POJK|SEOJK)?\s*(?:No\.?\s*)?(\d+)\s+(?:Tahun\s+)?(\d{4})/i)
-      const filterSource = pojkInQuery
-        ? `POJK No. ${pojkInQuery[1]} Tahun ${pojkInQuery[2]}`
-        : (mentionedPojk.length === 1 ? mentionedPojk[0] : null)
+      // Deteksi apakah user menyebut POJK spesifik di query
+      // Support: "POJK 72/2016", "POJK 72 Tahun 2016", "POJK 72" (tanpa tahun - lookup dari history)
+      const pojkInQuery = effectiveQuery.match(/(?:POJK|SEOJK)\s*(?:No\.?\s*)?(\d+)[\/\s]+(?:POJK\.\d+\/)?(?:Tahun\s+)?(\d{4})/i)
+        || effectiveQuery.match(/(?:POJK|SEOJK)\s*(?:No\.?\s*)?(\d+)(?!\d)/i)
+
+      let filterSource = null
+      if (pojkInQuery) {
+        const num = pojkInQuery[1]
+        const year = pojkInQuery[2]
+        if (year) {
+          filterSource = `POJK No. ${num} Tahun ${year}`
+        } else {
+          // Cari tahun dari mentionedPojk history
+          const matched = mentionedPojk.find(p => p.includes(`No. ${num} Tahun`) || p.includes(`No. ${num}/`))
+          filterSource = matched || null
+        }
+      } else if (mentionedPojk.length === 1) {
+        filterSource = mentionedPojk[0]
+      }
 
       // Search dengan filter source jika ada POJK spesifik
       const { data: v1, error: e1 } = await db.rpc('match_pojk_chunks', {
