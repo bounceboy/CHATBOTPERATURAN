@@ -241,7 +241,14 @@ input, textarea { font-family: inherit; color: inherit; }
 .bubble ul, .bubble ol { padding-left:20px; margin:6px 0; }
 .bubble li { margin-bottom:4px; }
 .bubble strong { color:var(--ink); font-weight:600; }
-.msg.user .bubble { color:var(--ink); }
+.msg.user .bubble {
+  background: var(--ink);
+  color: var(--bg);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  display: inline-block;
+  max-width: 88%;
+}
 .msg-file { display:inline-flex; align-items:center; gap:6px; background:var(--surface); border:1px solid var(--line-2); border-radius:var(--radius-sm); padding:6px 10px; font-size:12px; margin-bottom:8px; }
 .sources { padding-left:30px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:4px; }
 .src-label { font-family:var(--font-mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:var(--dim); margin-right:4px; }
@@ -1280,11 +1287,37 @@ function escHtml(s) {
 function escAttr(s) { return String(s).replace(/'/g,"\\'").replace(/"/g,'&quot;') }
 function formatText(text) {
   if (!text) return ''
-  return escHtml(text)
-    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
-    .replace(/\n\n/g,'</p><p>')
-    .replace(/\n- /g,'</p><ul><li>').replace(/\n/g,'<br>')
-    .replace(/^/,'<p>').replace(/$/, '</p>')
+  let html = escHtml(text)
+  // Bold, italic
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>')
+  // Headers -> bold (flatten)
+  html = html.replace(/^#{1,3}\s+(.+)/gm, '<strong>$1</strong>')
+  // Flat bullets (semua level jadi satu)
+  html = html.replace(/^[ \t]*[-*•○■][ \t]+(.+)/gm, '__BULLET__$1')
+  // Flat numbering (semua level jadi satu)
+  html = html.replace(/^[ \t]*\d+\.[ \t]+(.+)/gm, '__NUM__$1')
+  // Proses baris per baris
+  const lines = html.split('\n')
+  let result = ''
+  let inUl = false, inOl = false
+  for (const line of lines) {
+    if (line.startsWith('__BULLET__')) {
+      if (!inUl) { if (inOl) { result += '</ol>'; inOl = false } result += '<ul>'; inUl = true }
+      result += '<li>' + line.slice(10) + '</li>'
+    } else if (line.startsWith('__NUM__')) {
+      if (!inOl) { if (inUl) { result += '</ul>'; inUl = false } result += '<ol>'; inOl = true }
+      result += '<li>' + line.slice(7) + '</li>'
+    } else {
+      if (inUl) { result += '</ul>'; inUl = false }
+      if (inOl) { result += '</ol>'; inOl = false }
+      if (line.trim() === '') result += ''
+      else result += '<p>' + line + '</p>'
+    }
+  }
+  if (inUl) result += '</ul>'
+  if (inOl) result += '</ol>'
+  return result
 }
 function showToast(msg, type = 'success') {
   const toast = document.getElementById('toast')
