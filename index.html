@@ -361,6 +361,18 @@ input, textarea { font-family: inherit; color: inherit; }
   .admin-grid { grid-template-columns:1fr; }
   .login-stage { width:100%; }
 }
+
+/* Slot machine animation */
+@keyframes slotSpin {
+  0%   { transform: translateY(0);    opacity: 1; }
+  20%  { transform: translateY(-8px); opacity: 0; }
+  21%  { transform: translateY(8px);  opacity: 0; }
+  40%  { transform: translateY(0);    opacity: 1; }
+}
+.slot-tick {
+  display: inline-block;
+  animation: slotSpin 0.09s ease-in-out;
+}
 </style>
 </head>
 <body>
@@ -410,8 +422,8 @@ input, textarea { font-family: inherit; color: inherit; }
       <p class="hero-sub">CORE menjawab seluruh hal terkait dengan ketentuan, berdasarkan POJK, SEOJK, atau peraturan terkait.</p>
       <div class="hero-stats" style="grid-template-columns:1fr;">
         <div class="hero-stat">
-          <div class="num" id="hero-pojk-count">22<small>+</small></div>
-          <div class="lbl">POJK indexed</div>
+          <div class="num" id="hero-pojk-count"><span id="slot-num">--</span></div>
+          <div class="lbl">Ketentuan dalam Database</div>
         </div>
       </div>
     </div>
@@ -649,6 +661,42 @@ let confirmCallback = null
 let toastTimeout = null
 
 // ═══ INIT ═══
+
+// ═══ HERO COUNT SLOT MACHINE ═══
+async function fetchAndAnimateHeroCount() {
+  try {
+    const res = await fetch('/api/pojk-list')
+    const data = await res.json()
+    const count = (data.pojk || []).length
+    animateSlot(document.getElementById('slot-num'), count)
+  } catch(e) {
+    const el = document.getElementById('slot-num')
+    if (el) el.textContent = '?'
+  }
+}
+
+function animateSlot(el, finalVal) {
+  if (!el) return
+  const duration = 1400  // total ms
+  const tickInterval = 80 // ms per tick
+  const ticks = Math.floor(duration / tickInterval)
+  let current = 0
+
+  const run = (i) => {
+    if (i >= ticks) {
+      el.innerHTML = String(finalVal)
+      return
+    }
+    // Angka random saat berputar
+    const fake = Math.floor(Math.random() * 99)
+    el.innerHTML = '<span class="slot-tick">' + String(fake).padStart(2, '0') + '</span>'
+    // Makin lama makin lambat (ease out)
+    const delay = tickInterval + Math.floor((i / ticks) * tickInterval * 2)
+    setTimeout(() => run(i + 1), delay)
+  }
+  run(0)
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   ['login-username','login-password'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => {
@@ -661,6 +709,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
       document.getElementById('splash').style.display = 'none'
       showView('login')
+      fetchAndAnimateHeroCount()
     }, 800)
   }, 2200)
 
