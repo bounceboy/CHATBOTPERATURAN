@@ -285,7 +285,23 @@ module.exports = async function handler(req, res) {
   // tambahkan ke effectiveQuery supaya vector search tidak kehilangan konteks
   const mentionedPojkEarly = extractMentionedPojk(messages)
   const pojkInCurrentQuery = effectiveQuery.match(/(?:POJK|SEOJK)\s*(?:No\.?\s*)?(\d+)\s+(?:Tahun\s+)?(\d{4})/i)
-  const enrichedEffectiveQuery = (!pojkInCurrentQuery && mentionedPojkEarly.length > 0)
+  // Deteksi topic shift: cek apakah ada overlap antara query baru dan POJK di history
+  // Kalau tidak ada overlap, anggap user ganti topik — jangan inject POJK lama
+  const isTopicContinued = mentionedPojkEarly.length > 0 && (() => {
+    const qLower = effectiveQuery.toLowerCase()
+    // Ambil kata kunci dari POJK history (nomor, tahun, nama)
+    const pojkKeywords = mentionedPojkEarly.flatMap(p => {
+      const m = p.match(/(\d+).*?(\d{4})/)
+      return m ? [m[1], m[2]] : []
+    })
+    // Cek apakah query menyebut nomor/tahun POJK yang sama, atau topik yang sama dari recent AI response
+    const recentAiContent = (messages || []).filter(m => m.role === 'assistant').slice(-1)
+      .map(m => typeof m.content === 'string' ? m.content.toLowerCase().slice(0, 500) : '').join(' ')
+    const queryWords = qLower.replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 3)
+    const overlap = queryWords.filter(w => recentAiContent.includes(w))
+    return pojkKeywords.some(k => qLower.includes(k)) || overlap.length >= 2
+  })()
+  const enrichedEffectiveQuery = (!pojkInCurrentQuery && isTopicContinued)
     ? effectiveQuery + ' ' + mentionedPojkEarly.slice(0,2).join(' ')
     : effectiveQuery
 
