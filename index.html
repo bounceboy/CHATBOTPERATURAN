@@ -1057,7 +1057,7 @@ function newChat() {
 
 function resetChat() {
   const inner = document.getElementById('messages-inner')
-  const username = state.user?.username || 'Admin'
+  const username = state.user?.username || 'Guest'
   inner.innerHTML = `
     <div id="welcome">
       <div class="aurora a1"></div>
