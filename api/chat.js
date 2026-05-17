@@ -391,6 +391,29 @@ module.exports = async function handler(req, res) {
       console.error('Embedding error:', embErr.message)
     }
 
+    // 1.55 Force include pasal ekuitas POJK 72 HANYA jika:
+    // 1. User eksplisit menyebut POJK 72 di query atau history
+    // 2. Query tentang ekuitas/sanksi
+    const isEkuitasQuery = /ekuitas|modal minimum|permodalan|dividen/i.test(effectiveQuery)
+    const pojk72ExplicitInQuery = /72(?:\/POJK|\.05|\/2016|\s+2016|\s+Tahun\s+2016)/i.test(effectiveQuery)
+    const pojk72InHistory = mentionedPojk.some(p => p.includes('72') && p.includes('2016'))
+
+    if (isEkuitasQuery && (pojk72ExplicitInQuery || pojk72InHistory)) {
+      try {
+        const { data: ekuitasChunks } = await db
+          .from('pojk_chunks')
+          .select('id, pasal, bab, bab_title, source, content')
+          .eq('source', 'POJK No. 72 Tahun 2016')
+          .in('pasal', ['Pasal 37', 'Pasal 38', 'Pasal 56', 'Pasal 57'])
+        if (ekuitasChunks?.length > 0) {
+          const existIds = new Set(chunks.map(c => c.id))
+          const newChunks = ekuitasChunks.filter(c => !existIds.has(c.id))
+          chunks = [...chunks, ...newChunks]
+          console.log('[ekuitas boost] tambah', newChunks.length, 'chunk POJK 72/2016')
+        }
+      } catch(e) { console.error('Ekuitas boost error:', e.message) }
+    }
+
     // 1.6 Sanksi query expansion — jika query menyebut kewajiban/pelanggaran,
     // otomatis cari pasal sanksi yang relevan dari POJK yang sama
     const isSanksiQuery = /sanksi|denda|pelanggaran|hukuman|dikenakan|administratif|pidana/i.test(effectiveQuery)
