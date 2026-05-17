@@ -19,8 +19,8 @@ async function verifyToken(authHeader) {
     const token = authHeader.slice(7)
     const parts = token.split('.')
     if (parts.length < 2) return null
-    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'))
-    if (payload.exp && Date.now() / 1000 > payload.exp) return null
+    const payload = JSON.parse(atob(parts[0]))
+    if (payload.exp && Date.now() > payload.exp) return null
     if (payload.role !== 'admin') return null
     return payload
   } catch {
