@@ -1001,6 +1001,7 @@ html, body { height: 100%; background: var(--ink); color: var(--white); font-fam
   .login-card { width: 90%; padding: 32px 24px; }
 }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
 
@@ -1681,18 +1682,31 @@ async function uploadPojkBatch(files) {
         statusEl.textContent = `Embedding ${i + batch.length}/${chunks.length} (${pct}%)...`
       }
 
-      // Step 4: kirim chunks+embeddings ke Vercel untuk disimpan
+      
       statusEl.textContent = 'Menyimpan ke database...'
-      const embedRes = await fetch('/api/admin-embed', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + (state.user?.token || '')
-        },
-        body: JSON.stringify({ pojk_id, chunks: embeddedChunks })
-      })
-      const embedData = await embedRes.json()
-      if (!embedRes.ok) throw new Error(embedData.error || 'Simpan embedding gagal')
+      const SUPA_URL = 'https://cqfxxdcjgtgqkstchxev.supabase.co'
+      const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxZnh4ZGNqZ3RncWtzdGNoeGV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMTc5NzcsImV4cCI6MjA5Mzg5Mzk3N30.mIRF9fTC9YjNHuUdZrf3B2C2itw_q0Dd1aYfw7hA6Rs'
+      const BATCH_SIZE = 20
+      for (let si = 0; si < embeddedChunks.length; si += BATCH_SIZE) {
+        const batch = embeddedChunks.slice(si, si + BATCH_SIZE).map(c => ({
+          pojk_id, pasal: c.pasal, bab: c.bab || null,
+          bab_title: c.bab_title || null, content: c.content,
+          source: c.source, embedding: c.embedding
+        }))
+        const sr = await fetch(SUPA_URL + '/rest/v1/pojk_chunks', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPA_KEY,
+            'Authorization': 'Bearer ' + SUPA_KEY,
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify(batch)
+        })
+        if (!sr.ok) { const se = await sr.text(); throw new Error('Supabase insert gagal: ' + se) }
+        const saved = Math.min(si + BATCH_SIZE, embeddedChunks.length)
+        statusEl.textContent = 'Menyimpan ' + saved + '/' + embeddedChunks.length + '...'
+      }
 
       statusEl.className = 'bi-status done'
       statusEl.textContent = `✓ ${embeddedChunks.length} chunks`
@@ -2008,7 +2022,8 @@ function exportWord() {
   const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
   <head><meta charset="utf-8"><title>CORE Export</title>
   <style>body{font-family:Calibri,Arial,sans-serif;font-size:13px;color:#1E293B;margin:40px;}h1{color:#0F2B4E;font-size:20px;margin-bottom:4px;}.meta{color:#64748B;font-size:11px;margin-bottom:24px;}table{width:100%;border-collapse:collapse;}td{vertical-align:top;padding:10px;}</style>
-  </head><body>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head><body>
   <h1>CORE — Comprehensive Oversight Regulatory Explorer</h1>
   <p class="meta">Diekspor: ${dateStr}, ${timeStr} · ${state.messages.filter(m=>m.role==='user').length} pertanyaan</p>
   <hr style="border:none;border-top:2px solid #0F2B4E;margin-bottom:20px;">
