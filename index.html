@@ -1001,7 +1001,6 @@ html, body { height: 100%; background: var(--ink); color: var(--white); font-fam
   .login-card { width: 90%; padding: 32px 24px; }
 }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
 
@@ -2022,8 +2021,7 @@ function exportWord() {
   const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
   <head><meta charset="utf-8"><title>CORE Export</title>
   <style>body{font-family:Calibri,Arial,sans-serif;font-size:13px;color:#1E293B;margin:40px;}h1{color:#0F2B4E;font-size:20px;margin-bottom:4px;}.meta{color:#64748B;font-size:11px;margin-bottom:24px;}table{width:100%;border-collapse:collapse;}td{vertical-align:top;padding:10px;}</style>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-</head><body>
+  </head><body>
   <h1>CORE — Comprehensive Oversight Regulatory Explorer</h1>
   <p class="meta">Diekspor: ${dateStr}, ${timeStr} · ${state.messages.filter(m=>m.role==='user').length} pertanyaan</p>
   <hr style="border:none;border-top:2px solid #0F2B4E;margin-bottom:20px;">
