@@ -281,6 +281,13 @@ module.exports = async function handler(req, res) {
   if (!query && !file) return res.status(400).json({ error: 'query atau file wajib diisi' })
 
   const effectiveQuery = query || `Analisis dokumen dan identifikasi ketidaksesuaian dengan POJK`
+  // Jika ada POJK yang disebut di history tapi tidak di query saat ini,
+  // tambahkan ke effectiveQuery supaya vector search tidak kehilangan konteks
+  const mentionedPojkEarly = extractMentionedPojk(messages)
+  const pojkInCurrentQuery = effectiveQuery.match(/(?:POJK|SEOJK)\s*(?:No\.?\s*)?(\d+)\s+(?:Tahun\s+)?(\d{4})/i)
+  const enrichedEffectiveQuery = (!pojkInCurrentQuery && mentionedPojkEarly.length > 0)
+    ? effectiveQuery + ' ' + mentionedPojkEarly.slice(0,2).join(' ')
+    : effectiveQuery
 
   try {
     const db = getSupabase()
@@ -315,7 +322,7 @@ module.exports = async function handler(req, res) {
 
     // 1.5 Vector similarity search — primary retrieval method
     try {
-      const queryEmbedding = await embedQuery(effectiveQuery)
+      const queryEmbedding = await embedQuery(enrichedEffectiveQuery)
 
       // Deteksi apakah user menyebut POJK spesifik di query (misal "pojk 11 2023")
       const pojkInQuery = effectiveQuery.match(/(?:POJK|SEOJK)?\s*(?:No\.?\s*)?(\d+)\s+(?:Tahun\s+)?(\d{4})/i)
