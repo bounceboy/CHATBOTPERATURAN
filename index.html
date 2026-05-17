@@ -250,7 +250,7 @@ input, textarea { font-family: inherit; color: inherit; }
   display: inline-block;
   max-width: 88%;
 }
-.msg-file { display:inline-flex; align-items:center; gap:6px; background:var(--surface); border:1px solid var(--line-2); border-radius:var(--radius-sm); padding:6px 10px; font-size:12px; margin-bottom:8px; }
+.msg-file { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.2); border-radius:var(--radius-sm); padding:6px 10px; font-size:12px; margin-bottom:8px; color:var(--bg); }
 .sources { padding-left:30px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:4px; }
 .src-label { font-family:var(--font-mono); font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:var(--dim); margin-right:4px; }
 .src-btn { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:500; padding:4px 10px 4px 8px; border-radius:100px; background:var(--surface); color:var(--ink-2); border:1px solid var(--line-2); cursor:pointer; transition:all .15s; }
@@ -272,9 +272,11 @@ input, textarea { font-family: inherit; color: inherit; }
 #input-area { padding:12px 24px 20px; flex-shrink:0; background:var(--bg); }
 #input-wrap { max-width:780px; margin:0 auto; background:var(--surface-raised); border:1px solid var(--line-2); border-radius:var(--radius-lg); padding:4px; transition:border-color .15s,box-shadow .15s; box-shadow:0 4px 20px rgba(10,10,10,.04); }
 #input-wrap:focus-within { border-color:var(--ink); box-shadow:0 4px 20px rgba(10,10,10,.08); }
+#input-wrap.drag-over { border-color:var(--accent); background:var(--accent-soft); box-shadow:0 4px 20px rgba(255,77,46,.12); }
 #file-preview { display:none; background:var(--accent-soft); border-radius:var(--radius-sm); padding:8px 12px; margin:6px 6px 0; align-items:center; gap:10px; }
 #file-preview.show { display:flex; }
 #file-preview .file-name { font-size:12px; font-weight:500; color:var(--ink); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#file-preview svg { color: var(--ink); flex-shrink:0; }
 #file-preview .file-size { font-family:var(--font-mono); font-size:10px; color:var(--dim); }
 #file-preview .file-remove { background:none; border:none; cursor:pointer; color:var(--ink); font-size:16px; padding:0 4px; line-height:1; }
 #input-row { display:flex; align-items:flex-end; gap:6px; padding:6px; }
@@ -530,7 +532,7 @@ input, textarea { font-family: inherit; color: inherit; }
         <div id="messages-inner"></div>
       </div>
       <div id="input-area">
-        <div id="input-wrap">
+        <div id="input-wrap" ondragover="inputDragOver(event)" ondragleave="inputDragLeave(event)" ondrop="inputDrop(event)">
           <div id="file-preview">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             <span class="file-name" id="file-name-text"></span>
@@ -542,7 +544,7 @@ input, textarea { font-family: inherit; color: inherit; }
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
             </button>
             <input type="file" id="file-input" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" style="display:none" onchange="handleFileSelect(event)">
-            <textarea id="qinput" placeholder="Tanya CORE tentang regulasi… (Enter kirim, Shift+Enter baris baru)" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+            <textarea id="qinput" placeholder="Tanya CORE tentang regulasi… (Enter kirim, Shift+Enter baris baru)" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)" onpaste="handlePaste(event)"></textarea>
             <button id="send-btn" onclick="sendMessage()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
             </button>
@@ -1088,16 +1090,53 @@ function autoResize(el) {
   el.style.height = Math.min(el.scrollHeight, 140) + 'px'
 }
 
-function handleFileSelect(event) {
-  const file = event.target.files[0]
+// ═══ DRAG DROP & PASTE KE CHAT INPUT ═══
+function inputDragOver(e) {
+  e.preventDefault()
+  document.getElementById('input-wrap').classList.add('drag-over')
+}
+function inputDragLeave(e) {
+  document.getElementById('input-wrap').classList.remove('drag-over')
+}
+function inputDrop(e) {
+  e.preventDefault()
+  document.getElementById('input-wrap').classList.remove('drag-over')
+  const files = Array.from(e.dataTransfer.files)
+  if (files.length === 0) return
+  const file = files[0]
+  const allowed = ['pdf','doc','docx','png','jpg','jpeg','webp']
+  const ext = file.name.split('.').pop().toLowerCase()
+  if (!allowed.includes(ext)) { showToast('Format file tidak didukung.', 'error'); return }
+  attachFile(file)
+}
+function handlePaste(e) {
+  const items = Array.from(e.clipboardData?.items || [])
+  const imageItem = items.find(item => item.type.startsWith('image/'))
+  if (!imageItem) return
+  e.preventDefault()
+  const file = imageItem.getAsFile()
   if (!file) return
-  if (file.size > 15 * 1024 * 1024) { showToast('File terlalu besar. Maks 15MB.', 'error'); event.target.value = ''; return }
+  // Beri nama file paste
+  const ext = file.type.split('/')[1] || 'png'
+  const namedFile = new File([file], `screenshot-${Date.now()}.${ext}`, { type: file.type })
+  attachFile(namedFile)
+  showToast('Gambar dari clipboard dilampirkan.', 'success')
+}
+function attachFile(file) {
+  if (file.size > 15 * 1024 * 1024) { showToast('File terlalu besar. Maks 15MB.', 'error'); return }
   state.attachedFile = file
   document.getElementById('file-name-text').textContent = file.name
   document.getElementById('file-size-text').textContent = (file.size/1024/1024).toFixed(1) + ' MB'
   document.getElementById('file-preview').classList.add('show')
   document.getElementById('qinput').placeholder = 'Tambahkan pertanyaan tentang dokumen ini (opsional)...'
   document.getElementById('qinput').focus()
+}
+
+function handleFileSelect(event) {
+  const file = event.target.files[0]
+  if (!file) return
+  attachFile(file)
+  event.target.value = ''
 }
 
 function removeFile() {
