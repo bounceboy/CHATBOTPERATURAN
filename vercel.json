@@ -2,6 +2,8 @@
   "rewrites": [
     { "source": "/api/chat", "destination": "/api/chat.js" },
     { "source": "/api/ingest", "destination": "/api/ingest.js" },
-    { "source": "/api/pojk-list", "destination": "/api/pojk-list.js" }
+    { "source": "/api/pojk-list", "destination": "/api/pojk-list.js" },
+    { "source": "/api/admin-upload", "destination": "/api/admin-upload.js" },
+    { "source": "/api/admin-embed", "destination": "/api/admin-embed.js" }
   ]
 }

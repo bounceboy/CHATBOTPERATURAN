@@ -1282,6 +1282,7 @@ const state = {
   attachedFile: null,
   pojkList: [],
   adminMode: false,
+  openaiKey: localStorage.getItem('openai_key') || '',
 }
 
 let confirmCallback = null
@@ -1579,6 +1580,9 @@ function handlePojkFileSelect(e) {
   e.target.value = ''
 }
 
+// GANTI seluruh fungsi uploadPojkBatch di index.html (baris ~1582)
+// dengan kode di bawah ini
+
 async function uploadPojkBatch(files) {
   // Validasi ukuran
   const oversized = files.filter(f => f.size > 50 * 1024 * 1024)
@@ -1607,21 +1611,40 @@ async function uploadPojkBatch(files) {
     return { file, index: i }
   })
 
-  // Summary line
   const summary = document.createElement('div')
   summary.className = 'batch-summary'
   summary.id = 'batch-summary'
   summary.textContent = `0 / ${files.length} selesai`
   queueEl.appendChild(summary)
 
-  // Upload satu per satu (sequential — hindari timeout Vercel)
+  // ── Helper: embed batch teks via OpenAI dari browser ──────────────────────
+  async function embedBatch(texts) {
+    const OPENAI_KEY = state.openaiKey  // diambil dari state (lihat bawah)
+    const res = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ model: 'text-embedding-3-small', input: texts }),
+    })
+    if (!res.ok) {
+      const err = await res.json()
+      throw new Error('OpenAI error: ' + (err.error?.message || res.status))
+    }
+    const data = await res.json()
+    return data.data.map(d => d.embedding)
+  }
+
+  // ── Proses satu per satu ──────────────────────────────────────────────────
   let done = 0, failed = 0
   for (const { file, index } of items) {
     const statusEl = document.getElementById(`bi-status-${index}`)
-    statusEl.className = 'bi-status uploading'
-    statusEl.textContent = 'Mengupload...'
 
     try {
+      // Step 1: baca file sebagai base64
+      statusEl.className = 'bi-status uploading'
+      statusEl.textContent = 'Membaca file...'
       const b64 = await new Promise((res, rej) => {
         const r = new FileReader()
         r.onload = () => res(r.result.split(',')[1])
@@ -1629,7 +1652,9 @@ async function uploadPojkBatch(files) {
         r.readAsDataURL(file)
       })
 
-      const res = await fetch('/api/admin-upload', {
+      // Step 2: upload ke Vercel → ekstrak teks + chunking
+      statusEl.textContent = 'Mengekstrak teks...'
+      const uploadRes = await fetch('/api/admin-upload', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1637,18 +1662,47 @@ async function uploadPojkBatch(files) {
         },
         body: JSON.stringify({ filename: file.name, filedata: b64 })
       })
+      const uploadData = await uploadRes.json()
+      if (!uploadRes.ok) throw new Error(uploadData.error || 'Upload gagal')
 
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Upload gagal')
+      const { pojk_id, chunks, nama } = uploadData
+      statusEl.textContent = `Embedding ${chunks.length} chunks...`
+
+      // Step 3: embed di browser, batch 50 per request OpenAI
+      const BATCH = 50
+      const embeddedChunks = []
+      for (let i = 0; i < chunks.length; i += BATCH) {
+        const batch = chunks.slice(i, i + BATCH)
+        const embeddings = await embedBatch(batch.map(c => c.content))
+        batch.forEach((c, j) => embeddedChunks.push({ ...c, embedding: embeddings[j] }))
+
+        // Update progress
+        const pct = Math.round(((i + batch.length) / chunks.length) * 100)
+        statusEl.textContent = `Embedding ${i + batch.length}/${chunks.length} (${pct}%)...`
+      }
+
+      // Step 4: kirim chunks+embeddings ke Vercel untuk disimpan
+      statusEl.textContent = 'Menyimpan ke database...'
+      const embedRes = await fetch('/api/admin-embed', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + (state.user?.token || '')
+        },
+        body: JSON.stringify({ pojk_id, chunks: embeddedChunks })
+      })
+      const embedData = await embedRes.json()
+      if (!embedRes.ok) throw new Error(embedData.error || 'Simpan embedding gagal')
 
       statusEl.className = 'bi-status done'
-      statusEl.textContent = `✓ Selesai`
+      statusEl.textContent = `✓ ${embeddedChunks.length} chunks`
       done++
 
-    } catch(e) {
+    } catch (e) {
       statusEl.className = 'bi-status error'
       statusEl.textContent = `✗ Gagal`
       document.getElementById(`bi-${index}`).title = e.message
+      console.error(`[upload] ${file.name}:`, e.message)
       failed++
     }
 
@@ -1656,7 +1710,6 @@ async function uploadPojkBatch(files) {
       `${done} / ${files.length} selesai${failed > 0 ? ` · ${failed} gagal` : ''}`
   }
 
-  // Refresh data
   loadPojkList()
   setTimeout(() => loadAdminData(), 300)
 

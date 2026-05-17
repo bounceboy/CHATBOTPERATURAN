@@ -1,6 +1,7 @@
 // api/admin-upload.js
 // POST /api/admin-upload  { filename, filedata (base64) }
-// Upload PDF ke Supabase Storage → ingest lengkap (konsideran + pasal + penjelasan)
+// Tahap 1: Upload PDF → Ekstrak teks → Chunking → Return chunks ke browser
+// Embedding dilakukan di browser, lalu simpan via admin-embed.js
 
 import { createClient } from '@supabase/supabase-js'
 import pdfParse from 'pdf-parse/lib/pdf-parse.js'
@@ -10,129 +11,119 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-// ── Auth ──────────────────────────────────────────────────
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+
 async function verifyToken(authHeader) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null
   try {
     const token = authHeader.slice(7)
-    const [payloadB64] = token.split('.')
-    const payload = JSON.parse(atob(payloadB64))
-    if (payload.exp && Date.now() > payload.exp) return null
+    const parts = token.split('.')
+    if (parts.length < 2) return null
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'))
+    if (payload.exp && Date.now() / 1000 > payload.exp) return null
     if (payload.role !== 'admin') return null
     return payload
-  } catch { return null }
+  } catch {
+    return null
+  }
 }
 
-// ── Parse metadata dari filename ──────────────────────────
+// ─── Parse metadata dari filename ─────────────────────────────────────────────
+
 function parseFilename(filename) {
-  const base = filename.replace(/\.pdf$/i, '').replace(/[_]/g, ' ').trim()
-  const match = filename.match(/(?:POJK|OJK)[^\d]*(\d+)[^\d]*(\d{4})/i)
-  if (match) {
-    return { nomor: `${match[1]}/${match[2]}`, nama: base, tahun: parseInt(match[2]) }
+  const tahunDefault = new Date().getFullYear()
+
+  const matchPojk = filename.match(/pojk[_\s./No.-]*(\d+)[_\s./TahunNo.-]*(\d{4})/i)
+  if (matchPojk) {
+    const nomor = matchPojk[1]
+    const tahun = parseInt(matchPojk[2])
+    return { nomor: `${nomor}/${tahun}`, nama: `POJK No. ${nomor} Tahun ${tahun}`, tahun }
   }
+
+  const matchSeojk = filename.match(/seojk[_\s./No.-]*(\d+)[_\s./TahunNo.-]*(\d{4})/i)
+  if (matchSeojk) {
+    const nomor = matchSeojk[1]
+    const tahun = parseInt(matchSeojk[2])
+    return { nomor: `SE-${nomor}/${tahun}`, nama: `SEOJK No. ${nomor} Tahun ${tahun}`, tahun }
+  }
+
   const matchTahun = filename.match(/(\d{4})/)
-  const tahun = matchTahun ? parseInt(matchTahun[1]) : new Date().getFullYear()
-  return { nomor: `upload-${Date.now()}`, nama: base, tahun }
+  const tahun = matchTahun ? parseInt(matchTahun[1]) : tahunDefault
+  const base = filename.replace(/\.pdf$/i, '').replace(/[_-]/g, ' ').trim()
+  return { nomor: `upload-${Date.now()}`, nama: base || filename.replace(/\.pdf$/i, ''), tahun }
 }
 
-// ── Split teks jadi 3 segmen ──────────────────────────────
-function splitSegments(fullText) {
-  const memutuskanM = fullText.match(/\bMEMUTUSKAN\b/)
-  const penjelasanM = fullText.match(/\bPENJELASAN\b/)
+// ─── Ekstrak judul dari teks ───────────────────────────────────────────────────
 
-  const konsideran = memutuskanM
-    ? fullText.slice(0, memutuskanM.index).trim()
-    : ''
-
-  let batangTubuh, penjelasan
-  if (memutuskanM && penjelasanM) {
-    batangTubuh = fullText.slice(memutuskanM.index, penjelasanM.index).trim()
-    penjelasan  = fullText.slice(penjelasanM.index).trim()
-  } else if (memutuskanM) {
-    batangTubuh = fullText.slice(memutuskanM.index).trim()
-    penjelasan  = ''
-  } else {
-    batangTubuh = fullText.trim()
-    penjelasan  = ''
+function extractTitle(text) {
+  const match = text.match(/TENTANG\s+([\s\S]{10,300}?)(?:\n\s*\n|\bDENGAN\b|\bMENIMBANG\b)/i)
+  if (match) {
+    return match[1].replace(/\s+/g, ' ').replace(/[^\w\s,.()/]/g, '').trim().substring(0, 200)
   }
-
-  return { konsideran, batangTubuh, penjelasan }
+  return null
 }
 
-// ── Chunk konsideran ──────────────────────────────────────
-function chunkKonsideran(text, sourceName) {
-  if (!text || text.length < 50) return []
+// ─── Chunking teks per pasal ───────────────────────────────────────────────────
+
+function chunkText(fullText, sourceName, title) {
   const chunks = []
-  const bagianRe = /(Menimbang|Mengingat)\s*:/gi
-  const matches = [...text.matchAll(bagianRe)]
+  const titlePrefix = title ? `[${sourceName} — ${title}]\n` : `[${sourceName}]\n`
 
-  if (!matches.length) {
-    return [{ pasal: 'Konsideran', content: text.slice(0, 3000),
-              bab: 'Konsideran', bab_title: 'Dasar Hukum & Pertimbangan', source: sourceName }]
+  // Deteksi posisi BAB
+  const babMap = {}
+  const babPattern = /\n(BAB\s+[IVXLCDM]+)\s*\n([^\n]+)/gi
+  let babMatch
+  while ((babMatch = babPattern.exec(fullText)) !== null) {
+    babMap[babMatch.index] = { bab: babMatch[1].trim(), bab_title: babMatch[2].trim() }
   }
 
-  matches.forEach((m, i) => {
-    const start = m.index
-    const end   = matches[i+1] ? matches[i+1].index : text.length
-    const content = text.slice(start, end).trim()
-    if (content.length > 20) {
-      chunks.push({
-        pasal: m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase(),
-        content: content.slice(0, 3000),
-        bab: 'Konsideran', bab_title: 'Dasar Hukum & Pertimbangan', source: sourceName
-      })
+  const sections = fullText.split(/(?=\nPasal\s+\d+\b)/gi)
+  let currentBab = null
+  let currentBabTitle = null
+  let pos = 0
+
+  for (const section of sections) {
+    for (const [babPos, babInfo] of Object.entries(babMap)) {
+      if (parseInt(babPos) <= pos) {
+        currentBab = babInfo.bab
+        currentBabTitle = babInfo.bab_title
+      }
     }
-  })
+
+    const pasalMatch = section.match(/^[\s\n]*(Pasal\s+\d+)\b/i)
+    const pasal = pasalMatch ? pasalMatch[1].trim() : null
+    const content = section.trim()
+
+    if (content.length < 30) { pos += section.length; continue }
+
+    if (content.length > 1800) {
+      const subChunkSize = 1500
+      const overlap = 200
+      for (let i = 0; i < content.length; i += subChunkSize - overlap) {
+        const sub = content.slice(i, i + subChunkSize).trim()
+        if (sub.length < 30) continue
+        chunks.push({ pasal: pasal || `Bagian ${chunks.length + 1}`, bab: currentBab, bab_title: currentBabTitle, content: titlePrefix + sub })
+      }
+    } else {
+      chunks.push({ pasal: pasal || `Bagian ${chunks.length + 1}`, bab: currentBab, bab_title: currentBabTitle, content: titlePrefix + content })
+    }
+    pos += section.length
+  }
+
+  // Fallback kalau tidak ada pasal
+  if (chunks.length === 0 && fullText.trim().length > 0) {
+    for (let i = 0; i < fullText.length; i += 850) {
+      const sub = fullText.slice(i, i + 1000).trim()
+      if (sub.length < 50) continue
+      chunks.push({ pasal: `Bagian ${Math.floor(i / 850) + 1}`, bab: null, bab_title: null, content: titlePrefix + sub })
+    }
+  }
+
   return chunks
 }
 
-// ── Deteksi BAB ───────────────────────────────────────────
-function getBabPositions(text) {
-  const re = /\nBAB\s+([IVXLC]+)\s*\n(.*?)(?=\n)/gi
-  const result = []
-  for (const m of text.matchAll(re)) {
-    result.push({ pos: m.index, bab: `BAB ${m[1]}`, title: m[2].trim() })
-  }
-  return result
-}
+// ─── Handler ───────────────────────────────────────────────────────────────────
 
-function babAt(pos, babPositions) {
-  let bab = null, title = null
-  for (const b of [...babPositions].reverse()) {
-    if (b.pos <= pos) { bab = b.bab; title = b.title; break }
-  }
-  return { bab, bab_title: title }
-}
-
-// ── Chunk per pasal ───────────────────────────────────────
-function chunkByPasal(text, sourceName, babPrefix = '') {
-  const chunks = []
-  const babPositions = getBabPositions(text)
-  const pasalRe = /(?:^|\n)(Pasal\s+(\d+))\s*\n/gi
-  const matches = [...text.matchAll(pasalRe)]
-  const seen = new Set()
-
-  matches.forEach((m, i) => {
-    const no = parseInt(m[2])
-    if (seen.has(no)) return
-    seen.add(no)
-
-    const start   = m.index + m[0].length
-    const end     = matches[i+1] ? matches[i+1].index : text.length
-    const content = text.slice(start, end).trim()
-    if (content.length < 15) return
-
-    const { bab, bab_title } = babAt(m.index, babPositions)
-    chunks.push({
-      pasal    : `${babPrefix}${m[1].trim()}`,
-      content  : content.slice(0, 3000),
-      bab, bab_title, source: sourceName
-    })
-  })
-  return chunks
-}
-
-// ── Main handler ──────────────────────────────────────────
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
@@ -141,84 +132,74 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   const user = await verifyToken(req.headers.authorization)
-  if (!user) return res.status(401).json({ error: 'Unauthorized.' })
+  if (!user) return res.status(401).json({ error: 'Unauthorized. Login sebagai admin.' })
 
   const { filename, filedata } = req.body || {}
-  if (!filename || !filedata) return res.status(400).json({ error: 'filename dan filedata wajib.' })
+  if (!filename || !filedata) return res.status(400).json({ error: 'filename dan filedata wajib diisi.' })
 
   try {
-    const meta      = parseFilename(filename)
     const pdfBuffer = Buffer.from(filedata, 'base64')
+    const meta = parseFilename(filename)
+    console.log(`[upload] Memproses: ${meta.nama}`)
 
-    // ── Ekstrak teks dengan pdf-parse ──
-    let fullText = ''
-    try {
-      const parsed = await pdfParse(pdfBuffer)
-      fullText = parsed.text || ''
-    } catch (e) {
-      console.error('pdf-parse error:', e.message)
-      return res.status(422).json({ error: 'Gagal membaca PDF. Pastikan file tidak terenkripsi atau rusak.' })
-    }
-
-    if (!fullText || fullText.length < 100) {
-      return res.status(422).json({ error: 'PDF tidak mengandung teks yang dapat dibaca (kemungkinan scan/gambar).' })
-    }
-
-    // ── Upload PDF ke Storage ──
+    // Upload PDF ke Supabase Storage
     const storageKey = `pojk/${Date.now()}_${filename.replace(/\s+/g, '_')}`
     const { error: uploadError } = await supabase.storage
       .from('pojk-files')
       .upload(storageKey, pdfBuffer, { contentType: 'application/pdf', upsert: false })
+    if (uploadError) throw new Error('Upload storage gagal: ' + uploadError.message)
 
-    const fileUrl = uploadError ? null :
-      supabase.storage.from('pojk-files').getPublicUrl(storageKey).data?.publicUrl
+    const { data: urlData } = supabase.storage.from('pojk-files').getPublicUrl(storageKey)
+    const fileUrl = urlData?.publicUrl || null
 
-    // ── Build chunks ──
-    const { konsideran, batangTubuh, penjelasan } = splitSegments(fullText)
-
-    const allChunks = [
-      ...chunkKonsideran(konsideran, meta.nama),
-      ...chunkByPasal(batangTubuh, meta.nama),
-      ...chunkByPasal(penjelasan, meta.nama, 'Penjelasan '),
-    ]
-
-    const pasalCount = allChunks.filter(c =>
-      !c.pasal.startsWith('Penjelasan') && c.bab !== 'Konsideran'
-    ).length
-
-    if (!allChunks.length) {
-      return res.status(422).json({ error: 'Tidak ada konten yang dapat diproses dari PDF ini.' })
+    // Ekstrak teks dari PDF
+    const parsed = await pdfParse(pdfBuffer)
+    const fullText = parsed.text || ''
+    if (fullText.trim().length < 100) {
+      throw new Error('Teks PDF tidak berhasil diekstrak. Pastikan PDF bukan hasil scan (image-based).')
     }
 
-    // ── Insert pojk_list ──
-    const { data: pojkRow, error: listErr } = await supabase
+    // Chunking
+    const title = extractTitle(fullText)
+    const chunks = chunkText(fullText, meta.nama, title)
+    if (chunks.length === 0) throw new Error('Tidak ada chunk yang berhasil dibuat dari PDF ini.')
+
+    // Hapus POJK lama kalau ada (reingest)
+    const { data: existing } = await supabase
+      .from('pojk_list').select('id').eq('nomor', meta.nomor).maybeSingle()
+    if (existing) {
+      await supabase.from('pojk_chunks').delete().eq('pojk_id', existing.id)
+      await supabase.from('pojk_list').delete().eq('id', existing.id)
+    }
+
+    // Insert ke pojk_list
+    const { data: pojkRow, error: insertListErr } = await supabase
       .from('pojk_list')
-      .insert({ nomor: meta.nomor, nama: meta.nama, tahun: meta.tahun,
-                jumlah_pasal: pasalCount, file_url: fileUrl })
+      .insert({ nomor: meta.nomor, nama: meta.nama, tahun: meta.tahun, jumlah_pasal: chunks.length, file_url: fileUrl })
       .select().single()
+    if (insertListErr) throw new Error('Insert pojk_list gagal: ' + insertListErr.message)
 
-    if (listErr) throw new Error('Insert pojk_list gagal: ' + listErr.message)
+    console.log(`[upload] ✅ ${meta.nama} — ${chunks.length} chunks siap di-embed`)
 
-    // ── Insert chunks batch 50 ──
-    const chunksWithId = allChunks.map(c => ({ ...c, pojk_id: pojkRow.id }))
-    for (let i = 0; i < chunksWithId.length; i += 50) {
-      const { error: chunkErr } = await supabase
-        .from('pojk_chunks').insert(chunksWithId.slice(i, i + 50))
-      if (chunkErr) console.error('Chunk insert error:', chunkErr.message)
-    }
-
+    // Return chunks ke browser untuk proses embedding di client
     return res.status(200).json({
-      success      : true,
-      id           : pojkRow.id,
-      nama         : meta.nama,
-      tahun        : meta.tahun,
-      jumlah_pasal : pasalCount,
-      total_chunks : allChunks.length,
-      file_url     : fileUrl,
+      success: true,
+      pojk_id: pojkRow.id,
+      nama: meta.nama,
+      tahun: meta.tahun,
+      judul: title,
+      file_url: fileUrl,
+      chunks: chunks.map(c => ({
+        pasal: c.pasal,
+        bab: c.bab,
+        bab_title: c.bab_title,
+        content: c.content,
+        source: meta.nama,
+      })),
     })
 
   } catch (err) {
-    console.error('admin-upload error:', err)
+    console.error('[upload] Error:', err.message)
     return res.status(500).json({ error: err.message })
   }
 }
