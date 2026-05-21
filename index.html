@@ -6,6 +6,7 @@
 <title>CORE — Regulatory Explorer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1232,23 +1233,7 @@ async function uploadPojkBatch(files) {
   for (const { file, index } of items) {
     const statusEl = document.getElementById(`bi-status-${index}`)
     try {
-      statusEl.className = 'bi-status uploading'; statusEl.textContent = 'Membaca file...'
-      const b64 = await new Promise((res, rej) => {
-        const r = new FileReader()
-        r.onload = () => res(r.result.split(',')[1])
-        r.onerror = rej
-        r.readAsDataURL(file)
-      })
-      statusEl.textContent = 'Mengekstrak teks...'
-      const uploadRes = await fetch('/api/admin-upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (state.user?.token || '') },
-        body: JSON.stringify({ filename: file.name, filedata: b64 })
-      })
-      const uploadData = await uploadRes.json()
-      if (!uploadRes.ok) throw new Error(uploadData.error || 'Upload gagal')
-      const { pojk_id, chunks } = uploadData
-      statusEl.textContent = `Embedding ${chunks.length} chunks...`
+      // pipeline pdf.js — lihat blok try di bawah
       const BATCH = 50
       const embeddedChunks = []
       for (let i = 0; i < chunks.length; i += BATCH) {
