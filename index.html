@@ -1127,17 +1127,17 @@ async function uploadPojkBatch(files) {
         statusEl.textContent = `Embedding ${i + batch.length}/${chunks.length} (${pct}%)...`
       }
       statusEl.textContent = 'Menyimpan ke database...'
-      const SUPA_URL = 'https://cqfxxdcjgtgqkstchxev.supabase.co'
-      const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxZnh4ZGNqZ3RncWtzdGNoeGV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMTc5NzcsImV4cCI6MjA5Mzg5Mzk3N30.mIRF9fTC9YjNHuUdZrf3B2C2itw_q0Dd1aYfw7hA6Rs'
+      const _SUPA_URL = 'https://cqfxxdcjgtgqkstchxev.supabase.co'
+      const _SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxZnh4ZGNqZ3RncWtzdGNoeGV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMTc5NzcsImV4cCI6MjA5Mzg5Mzk3N30.mIRF9fTC9YjNHuUdZrf3B2C2itw_q0Dd1aYfw7hA6Rs'
       const BATCH_SIZE = 20
       for (let si = 0; si < embeddedChunks.length; si += BATCH_SIZE) {
         const batch = embeddedChunks.slice(si, si + BATCH_SIZE).map(c => ({
           pojk_id, pasal: c.pasal, bab: c.bab || null, bab_title: c.bab_title || null,
           content: c.content, source: c.source, embedding: c.embedding
         }))
-        const sr = await fetch(SUPA_URL + '/rest/v1/pojk_chunks', {
+        const sr = await fetch(_SUPA_URL + '/rest/v1/pojk_chunks', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Prefer': 'return=minimal' },
+          headers: { 'Content-Type': 'application/json', 'apikey': _SUPA_KEY, 'Authorization': 'Bearer ' + _SUPA_KEY, 'Prefer': 'return=minimal' },
           body: JSON.stringify(batch)
         })
         if (!sr.ok) { const se = await sr.text(); throw new Error('Supabase insert gagal: ' + se) }
@@ -1435,15 +1435,17 @@ async function loadFeedbackPanel() {
 }
 
 function applyFeedbackFilter(data) {
-  const statusFilter = document.getElementById('fb-filter-status')?.value || 'all'
-  const pojkFilter = document.getElementById('fb-filter-pojk')?.value || 'all'
-  const sortFilter = document.getElementById('fb-filter-sort')?.value || 'newest'
+  const statusFilter = document.getElementById('fb-filter-status') ? document.getElementById('fb-filter-status').value : 'all'
+  const sortFilter = document.getElementById('fb-filter-sort') ? document.getElementById('fb-filter-sort').value : 'newest'
   const container = document.getElementById('fb-list')
+  const pendingLabel = document.getElementById('fb-pending-label')
 
-  let filtered = data.filter(d => d.rating === 'negative')
-  if (statusFilter !== 'all') filtered = filtered.filter(d => d.status === statusFilter)
-  if (pojkFilter !== 'all') filtered = filtered.filter(d => JSON.stringify(d.sources || '').includes(pojkFilter))
-  if (sortFilter === 'frequent') filtered.sort((a,b) => (b.report_count||1) - (a.report_count||1))
+  let filtered = data.filter(function(d) { return d.rating === 'negative' })
+  if (statusFilter !== 'all') filtered = filtered.filter(function(d) { return d.status === statusFilter })
+  if (sortFilter === 'frequent') filtered.sort(function(a,b) { return (b.report_count||1) - (a.report_count||1) })
+
+  const pending = filtered.filter(function(d) { return d.status === 'pending' }).length
+  if (pendingLabel) pendingLabel.textContent = pending + ' menunggu review'
 
   container.innerHTML = ''
   if (filtered.length === 0) {
@@ -1451,64 +1453,70 @@ function applyFeedbackFilter(data) {
     return
   }
 
-  filtered.forEach((fb, i) => {
-    const sources = Array.isArray(fb.sources) ? fb.sources.map(s => s.source || s.pasal || '').filter(Boolean).join(', ') : ''
+  filtered.forEach(function(fb, i) {
+    const sources = Array.isArray(fb.sources) ? fb.sources.map(function(s) { return s.source || s.pasal || '' }).filter(Boolean).join(', ') : ''
     const isFrequent = (fb.report_count || 1) >= 3
     const date = new Date(fb.created_at).toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' })
+    const idStr = '#' + String(fb.id).padStart(3,'0')
+    const statusLabel = fb.status === 'pending' ? 'Menunggu' : fb.status === 'resolved' ? 'Selesai' : 'Diabaikan'
+    const countStr = (fb.report_count||1) + 'x · ' + date
+    const queryPreview = escHtml((fb.query||'').slice(0,120)) + ((fb.query||'').length > 120 ? '…' : '')
+    const fbDataStr = JSON.stringify(fb).replace(/\\/g,'\\\\').replace(/"/g,'&quot;')
 
     const row = document.createElement('div')
     row.className = 'fb-row'
-    row.innerHTML = \`
-      <div class="fb-row-head">
-        <span class="fb-num">#\${String(fb.id).padStart(3,'0')}</span>
-        \${isFrequent ? '<span class="fb-badge frequent">Sering dilaporkan</span>' : ''}
-        <span class="fb-badge \${fb.status}">\${fb.status === 'pending' ? 'Menunggu' : fb.status === 'resolved' ? 'Selesai' : 'Diabaikan'}</span>
-        <span style="margin-left:auto;font-size:11px;color:var(--dim);font-family:var(--font-mono);">\${(fb.report_count||1)}x · \${date}</span>
-      </div>
-      <div class="fb-query">\${escHtml((fb.query||'').slice(0,120))}\${(fb.query||'').length > 120 ? '…' : ''}</div>
-      <div class="fb-meta">
-        \${sources ? \`<span>\${escHtml(sources)}</span>\` : ''}
-        \${fb.reason ? \`<span>\${escHtml(fb.reason)}</span>\` : ''}
-      </div>
-      \${fb.detail ? \`<div class="fb-detail-text">\${escHtml(fb.detail)}</div>\` : ''}
-      \${fb.status === 'pending' ? \`
-      <div class="fb-actions-row">
-        <button class="fb-act-btn" onclick="showFeedbackDetail(\${JSON.stringify(fb).replace(/"/g,'&quot;')})">Lihat detail</button>
-        <button class="fb-act-btn resolve" onclick="updateFeedbackStatus(\${fb.id},'resolved',this)">Tandai selesai</button>
-        <button class="fb-act-btn ignore" onclick="updateFeedbackStatus(\${fb.id},'ignored',this)">Abaikan</button>
-      </div>\` : \`
-      <div class="fb-actions-row">
-        <button class="fb-act-btn" onclick="showFeedbackDetail(\${JSON.stringify(fb).replace(/"/g,'&quot;')})">Lihat detail</button>
-      </div>\`}
-    \`
+
+    let html = '<div class="fb-row-head">'
+    html += '<span class="fb-num">' + idStr + '</span>'
+    if (isFrequent) html += '<span class="fb-badge frequent">Sering dilaporkan</span>'
+    html += '<span class="fb-badge ' + fb.status + '">' + statusLabel + '</span>'
+    html += '<span style="margin-left:auto;font-size:11px;color:var(--dim);font-family:var(--font-mono);">' + countStr + '</span>'
+    html += '</div>'
+    html += '<div class="fb-query">' + queryPreview + '</div>'
+    html += '<div class="fb-meta">'
+    if (sources) html += '<span>' + escHtml(sources) + '</span>'
+    if (fb.reason) html += '<span>' + escHtml(fb.reason) + '</span>'
+    html += '</div>'
+    if (fb.detail) html += '<div class="fb-detail-text">' + escHtml(fb.detail) + '</div>'
+    html += '<div class="fb-actions-row">'
+    html += '<button class="fb-act-btn" onclick='showFeedbackDetail(' + fbDataStr + ')'>Lihat detail</button>'
+    if (fb.status === 'pending') {
+      html += '<button class="fb-act-btn resolve" onclick="updateFeedbackStatus(' + fb.id + ','resolved',this)">Tandai selesai</button>'
+      html += '<button class="fb-act-btn ignore" onclick="updateFeedbackStatus(' + fb.id + ','ignored',this)">Abaikan</button>'
+    }
+    html += '</div>'
+
+    row.innerHTML = html
     container.appendChild(row)
   })
 }
 
 function showFeedbackDetail(fb) {
-  const sources = Array.isArray(fb.sources) ? fb.sources.map(s => s.source || s.pasal || '').filter(Boolean).join(', ') : '-'
-  document.getElementById('fb-detail-content').innerHTML = \`
-    <div class="fb-detail-section">
-      <div class="fb-detail-label">Query</div>
-      <div class="fb-detail-content">\${escHtml(fb.query || '-')}</div>
-    </div>
-    <div class="fb-detail-section">
-      <div class="fb-detail-label">Jawaban CORE</div>
-      <div class="fb-detail-content" style="max-height:200px;overflow-y:auto;">\${escHtml((fb.answer||'-').slice(0,1000))}\${(fb.answer||'').length > 1000 ? '…' : ''}</div>
-    </div>
-    <div class="fb-detail-section">
-      <div class="fb-detail-label">POJK Dikutip</div>
-      <div class="fb-detail-content">\${escHtml(sources)}</div>
-    </div>
-    <div class="fb-detail-section">
-      <div class="fb-detail-label">Alasan Feedback</div>
-      <div class="fb-detail-content">\${escHtml(fb.reason || '-')}</div>
-    </div>
-    \${fb.detail ? \`<div class="fb-detail-section">
-      <div class="fb-detail-label">Catatan User</div>
-      <div class="fb-detail-content">\${escHtml(fb.detail)}</div>
-    </div>\` : ''}
-  \`
+  const sources = Array.isArray(fb.sources) ? fb.sources.map(function(s) { return s.source || s.pasal || '' }).filter(Boolean).join(', ') : '-'
+  let html = ''
+  html += '<div class="fb-detail-section">'
+  html += '<div class="fb-detail-label">Query</div>'
+  html += '<div class="fb-detail-content">' + escHtml(fb.query || '-') + '</div>'
+  html += '</div>'
+  html += '<div class="fb-detail-section">'
+  html += '<div class="fb-detail-label">Jawaban CORE</div>'
+  html += '<div class="fb-detail-content" style="max-height:200px;overflow-y:auto;">' + escHtml((fb.answer||'-').slice(0,1000)) + ((fb.answer||'').length > 1000 ? '…' : '') + '</div>'
+  html += '</div>'
+  html += '<div class="fb-detail-section">'
+  html += '<div class="fb-detail-label">POJK Dikutip</div>'
+  html += '<div class="fb-detail-content">' + escHtml(sources) + '</div>'
+  html += '</div>'
+  html += '<div class="fb-detail-section">'
+  html += '<div class="fb-detail-label">Alasan Feedback</div>'
+  html += '<div class="fb-detail-content">' + escHtml(fb.reason || '-') + '</div>'
+  html += '</div>'
+  if (fb.detail) {
+    html += '<div class="fb-detail-section">'
+    html += '<div class="fb-detail-label">Catatan User</div>'
+    html += '<div class="fb-detail-content">' + escHtml(fb.detail) + '</div>'
+    html += '</div>'
+  }
+  document.getElementById('fb-detail-content').innerHTML = html
   document.getElementById('fb-detail-overlay').classList.add('show')
 }
 
