@@ -285,7 +285,8 @@ input, textarea { font-family: inherit; color: inherit; }
 .fb-actions { display:flex; gap:8px; justify-content:flex-end; }
 .fb-cancel { background:transparent; border:1px solid var(--line-2); border-radius:100px; color:var(--ink-2); padding:9px 18px; font-size:13px; font-weight:500; cursor:pointer; }
 .fb-submit { background:var(--ink); border:1px solid var(--ink); border-radius:100px; color:var(--bg); padding:9px 18px; font-size:13px; font-weight:500; cursor:pointer; }
-.admin-tabs { display:flex; gap:0; border-bottom:1px solid var(--line); margin-bottom:24px; }
+.admin-tabs { display:flex; gap:0; border-bottom:1px solid var(--line); margin-bottom:0; }
+.admin-tab-content { padding-top:28px; margin-top:0; }
 .admin-tab { padding:10px 18px; font-size:12px; font-family:var(--font-mono); letter-spacing:.12em; text-transform:uppercase; color:var(--dim); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; transition:all .15s; }
 .admin-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
 .fb-row { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; margin-bottom:8px; }
@@ -613,13 +614,7 @@ input, textarea { font-family: inherit; color: inherit; }
     <section id="admin-panel">
       <div class="admin-head">
         <div>
-          <div class="admin-eyebrow">Panel Admin · Database Regulasi</div>
-          <h1 class="admin-title">Kelola <em>POJK</em></h1>
-      </div>
-      <div class="admin-tabs" style="margin-bottom:0;">
-        <div class="admin-tab active" id="tab-database" onclick="switchAdminTab('database')">Database</div>
-        <div class="admin-tab" id="tab-feedback" onclick="switchAdminTab('feedback')">Feedback</div>
-      </div>
+          <h1 class="admin-title">Panel <em>Admin</em></h1>
         </div>
         <div style="display:flex;gap:8px;">
           <button class="topbar-btn" onclick="showPanel('chat')">
@@ -628,7 +623,11 @@ input, textarea { font-family: inherit; color: inherit; }
           </button>
         </div>
       </div>
-      <div class="admin-grid">
+      <div class="admin-tabs" style="margin-bottom:0;">
+        <div class="admin-tab active" id="tab-database" onclick="switchAdminTab('database')">Database</div>
+        <div class="admin-tab" id="tab-feedback" onclick="switchAdminTab('feedback')">Feedback</div>
+      </div>
+      <div class="admin-tab-content"><div class="admin-grid">
         <div class="admin-card">
           <div class="admin-card-head">
             <span class="admin-card-title">Upload POJK</span>
@@ -677,10 +676,10 @@ input, textarea { font-family: inherit; color: inherit; }
             <div id="admin-pojk-list"></div>
           </div>
         </div>
-      </div>
+      </div></div>
 
       <!-- Feedback panel -->
-      <div id="feedback-panel" style="display:none; flex-direction:column; width:100%; max-width:1100px; margin:0 auto;">
+      <div id="feedback-panel" class="admin-tab-content" style="display:none; flex-direction:column; width:100%; max-width:1100px; margin:0 auto; padding-top:28px;">
         <div class="fb-stats">
           <div class="fb-stat-box"><div class="fb-stat-val" id="fb-stat-total">0</div><div class="fb-stat-lbl">Total</div></div>
           <div class="fb-stat-box"><div class="fb-stat-val" id="fb-stat-pending" style="color:#E8B84B;">0</div><div class="fb-stat-lbl">Menunggu</div></div>
@@ -699,6 +698,7 @@ input, textarea { font-family: inherit; color: inherit; }
             <option value="frequent">Sering dilaporkan</option>
           </select>
           <div style="margin-left:auto;font-size:11px;color:var(--dim);font-family:var(--font-mono);" id="fb-pending-label"></div>
+          <button class="fb-filter-sel" onclick="exportFeedback()" style="cursor:pointer;background:var(--ink);color:var(--bg);border-color:var(--ink);padding:5px 14px;">Export</button>
         </div>
         <div id="fb-list"></div>
       </div>
@@ -1402,6 +1402,82 @@ async function submitFeedback() {
   showToast('Terima kasih. Feedback dicatat untuk ditinjau.', 'success')
 }
 
+async function saveAdminNote(id, note) {
+  try {
+    await fetch(SUPA_URL + '/rest/v1/core_feedback?id=eq.' + id, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPA_ANON,
+        'Authorization': 'Bearer ' + SUPA_ANON,
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({ admin_note: note }),
+    })
+  } catch(e) {
+    console.error('[feedback] Gagal simpan catatan:', e.message)
+  }
+}
+
+async function exportFeedback() {
+  try {
+    const res = await fetch(SUPA_URL + '/rest/v1/core_feedback?select=*&order=created_at.desc&limit=500', {
+      headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON }
+    })
+    const data = await res.json()
+    if (!Array.isArray(data) || data.length === 0) { showToast('Belum ada feedback.', 'error'); return }
+    const negative = data.filter(function(d) { return d.rating === 'negative' })
+    const now = new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' })
+
+    let md = '# CORE Feedback Report\n'
+    md += 'Diekspor: ' + now + '\n'
+    md += 'Total feedback negatif: ' + negative.length + '\n\n---\n\n'
+
+    negative.forEach(function(fb) {
+      const sources = Array.isArray(fb.sources) ? fb.sources.map(function(s) { return s.source || '' }).filter(Boolean).join(', ') : '-'
+      md += '## Feedback #' + String(fb.id).padStart(3,'0') + '\n'
+      md += '**Status:** ' + fb.status + '\n'
+      md += '**Frekuensi:** ' + (fb.report_count || 1) + 'x\n'
+      md += '**Tanggal:** ' + new Date(fb.created_at).toLocaleDateString('id-ID') + '\n\n'
+      md += '**Query:**\n> ' + (fb.query || '-') + '\n\n'
+      md += '**Jawaban CORE:**\n> ' + (fb.answer || '-').slice(0,500).replace(/\n/g, ' ') + '\n\n'
+      md += '**POJK dikutip:** ' + sources + '\n'
+      md += '**Alasan:** ' + (fb.reason || '-') + '\n'
+      if (fb.detail) md += '**Catatan user:** ' + fb.detail + '\n'
+      if (fb.admin_note) md += '**Solusi admin:** ' + fb.admin_note + '\n'
+      md += '\n---\n\n'
+    })
+
+    const blob1 = new Blob([md], { type: 'text/markdown;charset=utf-8' })
+    const url1 = URL.createObjectURL(blob1)
+    const a1 = document.createElement('a')
+    a1.href = url1
+    a1.download = 'CORE_Feedback_' + new Date().toISOString().slice(0,10) + '.md'
+    a1.click()
+    URL.revokeObjectURL(url1)
+
+    const withNote = negative.filter(function(d) { return d.admin_note && d.admin_note.trim() })
+    if (withNote.length > 0) {
+      let jsonl = ''
+      withNote.forEach(function(fb) {
+        const pair = { messages: [{ role: 'user', content: fb.query || '' }, { role: 'assistant', content: fb.admin_note }] }
+        jsonl += JSON.stringify(pair) + '\n'
+      })
+      const blob2 = new Blob([jsonl], { type: 'application/jsonl' })
+      const url2 = URL.createObjectURL(blob2)
+      const a2 = document.createElement('a')
+      a2.href = url2
+      a2.download = 'CORE_Finetune_' + new Date().toISOString().slice(0,10) + '.jsonl'
+      setTimeout(function() { a2.click(); URL.revokeObjectURL(url2) }, 500)
+    }
+
+    showToast('Export berhasil' + (withNote.length > 0 ? ' — 2 file' : ' — 1 file'), 'success')
+  } catch(e) {
+    showToast('Export gagal: ' + e.message, 'error')
+  }
+}
+
+
 async function loadFeedbackPanel() {
   const container = document.getElementById('fb-list')
   const statsEl = {
@@ -1478,6 +1554,10 @@ function applyFeedbackFilter(data) {
     if (fb.reason) html += '<span>' + escHtml(fb.reason) + '</span>'
     html += '</div>'
     if (fb.detail) html += '<div class="fb-detail-text">' + escHtml(fb.detail) + '</div>'
+    html += '<div style="margin-top:10px;">'
+    html += '<div class="fb-detail-label" style="margin-bottom:4px;">Komentar admin / solusi</div>'
+    html += '<textarea placeholder="Tuliskan analisis atau solusi..." style="width:100%;font-size:12px;padding:8px 10px;border:1px solid var(--line-2);border-radius:var(--radius-sm);background:var(--bg);color:var(--ink);font-family:var(--font-body);resize:none;height:64px;outline:none;box-sizing:border-box;" onblur="saveAdminNote(' + fb.id + ', this.value)">' + escHtml(fb.admin_note || '') + '</textarea>'
+    html += '</div>'
     html += '<div class="fb-actions-row">'
     html += '<button class="fb-act-btn" onclick="showFeedbackDetail(this)" data-fb="' + escHtml(JSON.stringify(fb)) + '">Lihat detail</button>'
     if (fb.status === 'pending') {
@@ -1609,10 +1689,10 @@ function renderMessage(msg) {
     fbRow.className = 'feedback-row'
     const posBtn = document.createElement('button')
     posBtn.className = 'fb-btn pos'
-    posBtn.innerHTML = '+ Membantu'
+    posBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 9V5a3 3 0 00-3-3l-4 10v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg>'
     const negBtn = document.createElement('button')
     negBtn.className = 'fb-btn neg'
-    negBtn.innerHTML = '- Tidak membantu'
+    negBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg>'
     posBtn.onclick = () => {
       if (posBtn.classList.contains('active') || negBtn.classList.contains('active')) return
       posBtn.classList.add('active')
