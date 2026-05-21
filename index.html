@@ -1163,7 +1163,7 @@ function renderAdminList(list) {
       </div>
       <div class="apl-actions">
         ${p.file_url ? `<a href="${p.file_url}" target="_blank" rel="noopener" class="apl-btn" style="text-decoration:none;">PDF</a>` : ''}
-        <button class="apl-btn del" onclick="deletePojk(${p.id}, '${escAttr(p.nama || '')}')">Hapus</button>
+        <button class="apl-btn del" onclick="deletePojk('${p.id}', '${escAttr(p.nama || '')}')">Hapus</button>
       </div>`
     el.appendChild(row)
   })
