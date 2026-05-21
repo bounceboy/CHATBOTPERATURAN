@@ -1710,7 +1710,9 @@ async function createUser() {
   } catch(e) { showToast(e.message, 'error') }
 }
 
-async function updateUserStatus(id, status) {
+async function updateUserStatus(btn) {
+  const id = btn.getAttribute('data-id')
+  const status = btn.getAttribute('data-status')
   try {
     const res = await fetch('/api/admin-users', {
       method: 'PATCH',
@@ -1724,7 +1726,9 @@ async function updateUserStatus(id, status) {
   } catch(e) { showToast(e.message, 'error') }
 }
 
-async function deleteUser(id, nama) {
+async function deleteUser(btn) {
+  const id = btn.getAttribute('data-id')
+  const nama = btn.getAttribute('data-nama')
   showConfirm('Hapus Akun', 'Yakin menghapus akun "' + nama + '"? Tindakan ini permanen.', async () => {
     try {
       const res = await fetch('/api/admin-users', {
@@ -1774,16 +1778,16 @@ async function loadUserPanel() {
       html += '</div>'
       html += '<span class="user-badge ' + u.role + '">' + u.role + '</span>'
       html += '<span class="user-badge ' + u.status + '">' + (u.status === 'active' ? 'Aktif' : u.status === 'pending' ? 'Menunggu' : 'Nonaktif') + '</span>'
-      html += '<div class="user-actions">'
+                  html += '<div class="user-actions">'
       if (u.status === 'pending') {
-        html += '<button class="user-act-btn approve" onclick="updateUserStatus('' + u.id + '', 'active')">Setujui</button>'
-        html += '<button class="user-act-btn danger" onclick="updateUserStatus('' + u.id + '', 'suspended')">Tolak</button>'
+        html += '<button class="user-act-btn approve" onclick="updateUserStatus(this)" data-id="' + u.id + '" data-status="active">Setujui</button>'
+        html += '<button class="user-act-btn danger" onclick="updateUserStatus(this)" data-id="' + u.id + '" data-status="suspended">Tolak</button>'
       } else if (u.status === 'active') {
-        html += '<button class="user-act-btn" onclick="updateUserStatus('' + u.id + '', 'suspended')">Nonaktifkan</button>'
+        html += '<button class="user-act-btn" onclick="updateUserStatus(this)" data-id="' + u.id + '" data-status="suspended">Nonaktifkan</button>'
       } else {
-        html += '<button class="user-act-btn approve" onclick="updateUserStatus('' + u.id + '', 'active')">Aktifkan</button>'
+        html += '<button class="user-act-btn approve" onclick="updateUserStatus(this)" data-id="' + u.id + '" data-status="active">Aktifkan</button>'
       }
-      html += '<button class="user-act-btn danger" onclick="deleteUser('' + u.id + '', '' + escHtml(u.nama_lengkap || u.username) + '')">Hapus</button>'
+      html += '<button class="user-act-btn danger" onclick="deleteUser(this)" data-id="' + u.id + '" data-nama="' + escHtml(u.nama_lengkap || u.username) + '">Hapus</button>'
       html += '</div>'
       row.innerHTML = html
       container.appendChild(row)
