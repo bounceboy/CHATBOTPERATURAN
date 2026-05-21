@@ -1233,19 +1233,7 @@ async function uploadPojkBatch(files) {
   for (const { file, index } of items) {
     const statusEl = document.getElementById(`bi-status-${index}`)
     try {
-      // pipeline pdf.js — lihat blok try di bawah
-      const BATCH = 50
-      const embeddedChunks = []
-      for (let i = 0; i < chunks.length; i += BATCH) {
-        const batch = chunks.slice(i, i + BATCH)
-        const embeddings = await embedBatch(batch.map(c => c.content))
-        batch.forEach((c, j) => embeddedChunks.push({ ...c, embedding: embeddings[j] }))
-        const pct = Math.round(((i + batch.length) / chunks.length) * 100)
-        statusEl.textContent = `Embedding ${i + batch.length}/${chunks.length} (${pct}%)...`
-      }
-      statusEl.textContent = 'Menyimpan ke database...'
-      const _SUPA_URL = 'https://cqfxxdcjgtgqkstchxev.supabase.co'
-      const _SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxZnh4ZGNqZ3RncWtzdGNoeGV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMTc5NzcsImV4cCI6MjA5Mzg5Mzk3N30.mIRF9fTC9YjNHuUdZrf3B2C2itw_q0Dd1aYfw7hA6Rs'
+      // pipeline baru dimulai di blok extractTextPdfJs di atas
       const BATCH_SIZE = 20
       for (let si = 0; si < embeddedChunks.length; si += BATCH_SIZE) {
         const batch = embeddedChunks.slice(si, si + BATCH_SIZE).map(c => ({
