@@ -7,7 +7,7 @@ module.exports = async function handler(req, res) {
   const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
   const { data, error } = await db
     .from('pojk_list')
-    .select('id, nomor, nama, tahun, jumlah_pasal')
+    .select('id, nomor, nama, tahun, jumlah_pasal, file_url')
     .order('tahun', { ascending: false })
 
   if (error) return res.status(500).json({ error: error.message })
