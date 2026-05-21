@@ -366,6 +366,47 @@ input, textarea { font-family: inherit; color: inherit; }
 .saran-act-btn.tindak { border-color:var(--green); color:var(--green); }
 .saran-act-btn.tindak:hover { background:var(--green); color:white; }
 .saran-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
+#register-overlay { display:none; position:fixed; inset:0; background:rgba(10,10,10,.4); backdrop-filter:blur(8px); z-index:1500; align-items:center; justify-content:center; opacity:0; transition:opacity .25s; }
+#register-overlay.show { display:flex; opacity:1; }
+#register-dialog { background:var(--surface-raised); border-radius:var(--radius); padding:32px; max-width:420px; width:90%; box-shadow:0 24px 80px rgba(10,10,10,.25); transform:scale(.95); transition:transform .25s cubic-bezier(.2,.7,.2,1); }
+#register-overlay.show #register-dialog { transform:scale(1); }
+.reg-eyebrow { font-family:var(--font-mono); font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:var(--dim); margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+.reg-eyebrow::before { content:''; width:18px; height:1px; background:var(--line-3); }
+#register-dialog h3 { font-family:var(--font-display); font-size:32px; line-height:1.05; color:var(--ink); margin-bottom:6px; letter-spacing:-.01em; }
+#register-dialog p { font-size:13px; color:var(--dim); margin-bottom:24px; line-height:1.55; }
+.reg-field { margin-bottom:18px; }
+.reg-field label { display:block; font-family:var(--font-mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); margin-bottom:6px; }
+.reg-field input { width:100%; background:transparent; border:none; border-bottom:1px solid var(--line-2); padding:8px 0; font-size:14px; color:var(--ink); font-family:var(--font-body); outline:none; transition:border-color .2s; }
+.reg-field input:focus { border-color:var(--accent); }
+.reg-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:24px; }
+.reg-cancel { background:transparent; border:1px solid var(--line-2); border-radius:100px; color:var(--ink-2); padding:10px 20px; font-size:13px; font-weight:500; cursor:pointer; transition:all .15s; font-family:var(--font-body); }
+.reg-cancel:hover { border-color:var(--ink); }
+.reg-submit { background:var(--ink); border:1px solid var(--ink); border-radius:100px; color:var(--bg); padding:10px 20px; font-size:13px; font-weight:500; cursor:pointer; font-family:var(--font-body); display:flex; align-items:center; gap:8px; }
+.reg-submit .arrow { display:inline-flex; width:18px; height:18px; background:var(--accent); color:var(--ink); border-radius:50%; align-items:center; justify-content:center; }
+.user-row { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; margin-bottom:8px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.user-avatar { width:36px; height:36px; border-radius:50%; background:var(--ink); color:var(--bg); display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:13px; font-weight:500; flex-shrink:0; }
+.user-info { flex:1; min-width:0; }
+.user-name { font-size:13px; font-weight:500; color:var(--ink); }
+.user-meta { font-size:11px; color:var(--dim); font-family:var(--font-mono); margin-top:2px; }
+.user-badge { font-size:10px; padding:2px 8px; border-radius:100px; font-family:var(--font-mono); }
+.user-badge.admin { background:rgba(10,10,10,.08); color:var(--ink); border:1px solid var(--line-2); }
+.user-badge.user { background:rgba(91,142,219,.12); color:#185FA5; border:1px solid rgba(91,142,219,.2); }
+.user-badge.active { background:rgba(47,125,91,.12); color:var(--green); border:1px solid rgba(47,125,91,.2); }
+.user-badge.pending { background:rgba(232,184,75,.15); color:#B8860B; border:1px solid rgba(232,184,75,.3); }
+.user-badge.suspended { background:rgba(10,10,10,.06); color:var(--dim); border:1px solid var(--line-2); }
+.user-actions { display:flex; gap:6px; flex-wrap:wrap; }
+.user-act-btn { font-size:11px; padding:4px 12px; border-radius:100px; font-family:var(--font-mono); cursor:pointer; border:1px solid var(--line-2); background:var(--surface-raised); color:var(--ink-2); transition:all .15s; }
+.user-act-btn:hover { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+.user-act-btn.approve { border-color:var(--green); color:var(--green); }
+.user-act-btn.approve:hover { background:var(--green); color:white; }
+.user-act-btn.danger { border-color:var(--err); color:var(--err); }
+.user-act-btn.danger:hover { background:var(--err); color:white; }
+#add-user-form { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:20px; margin-bottom:16px; display:none; }
+#add-user-form.show { display:block; }
+.add-user-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+.add-user-field label { font-family:var(--font-mono); font-size:9px; letter-spacing:.16em; text-transform:uppercase; color:var(--dim); display:block; margin-bottom:4px; }
+.add-user-field input, .add-user-field select { width:100%; background:transparent; border:none; border-bottom:1px solid var(--line-2); padding:6px 0; font-size:13px; color:var(--ink); font-family:var(--font-body); outline:none; transition:border-color .2s; }
+.add-user-field input:focus, .add-user-field select:focus { border-color:var(--accent); }
 #fb-detail-overlay.show { display:flex; opacity:1; }
 #fb-detail-dialog { background:var(--surface-raised); border-radius:var(--radius); padding:28px; max-width:560px; width:92%; max-height:80vh; overflow-y:auto; box-shadow:0 24px 80px rgba(10,10,10,.25); }
 #fb-detail-dialog h3 { font-family:var(--font-display); font-size:24px; color:var(--ink); margin-bottom:16px; }
@@ -555,9 +596,9 @@ input, textarea { font-family: inherit; color: inherit; }
         <span class="arrow"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
       </button>
       <div class="sep">atau</div>
-      <button class="btn-ghost" onclick="loginAsGuest()">
+      <button class="btn-ghost" onclick="openRegisterDialog()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        Lanjutkan sebagai Guest
+        Buat Akun
       </button>
       <div class="stage-foot">
         <strong>Departemen Pengawasan Asuransi dan Jasa Penunjang</strong>
@@ -683,6 +724,7 @@ input, textarea { font-family: inherit; color: inherit; }
           <div class="admin-tab active" id="tab-database" onclick="switchAdminTab('database')"><span class="tab-dot"></span>Database</div>
           <div class="admin-tab" id="tab-feedback" onclick="switchAdminTab('feedback')"><span class="tab-dot"></span>Feedback</div>
           <div class="admin-tab" id="tab-saran" onclick="switchAdminTab('saran')"><span class="tab-dot"></span>Saran &amp; Masukan</div>
+          <div class="admin-tab" id="tab-pengguna" onclick="switchAdminTab('pengguna')"><span class="tab-dot"></span>Pengguna</div>
         </div>
       </div>
       <div class="admin-tab-content" style="max-width:1100px;width:100%;margin:0 auto;"><div class="admin-grid">
@@ -787,6 +829,36 @@ input, textarea { font-family: inherit; color: inherit; }
         <div id="saran-list"></div>
       </div>
 
+      <!-- Panel Pengguna -->
+      <div id="pengguna-panel" class="admin-tab-content" style="display:none; flex-direction:column; width:100%; max-width:1100px; margin:0 auto;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+          <div class="fb-stats" style="flex:1; margin-bottom:0;">
+            <div class="fb-stat-box"><div class="fb-stat-val" id="user-stat-total">0</div><div class="fb-stat-lbl">Total</div></div>
+            <div class="fb-stat-box"><div class="fb-stat-val" id="user-stat-active" style="color:var(--green);">0</div><div class="fb-stat-lbl">Aktif</div></div>
+            <div class="fb-stat-box"><div class="fb-stat-val" id="user-stat-pending" style="color:#E8B84B;">0</div><div class="fb-stat-lbl">Menunggu</div></div>
+            <div class="fb-stat-box"><div class="fb-stat-val" id="user-stat-admin">0</div><div class="fb-stat-lbl">Admin</div></div>
+          </div>
+          <button class="fb-filter-sel" onclick="toggleAddUserForm()" style="cursor:pointer;background:var(--ink);color:var(--bg);border-color:var(--ink);padding:6px 16px;margin-left:16px;white-space:nowrap;">+ Tambah User</button>
+        </div>
+
+        <!-- Form tambah user -->
+        <div id="add-user-form">
+          <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-bottom:12px;">Buat Akun Baru</div>
+          <div class="add-user-grid">
+            <div class="add-user-field"><label>Nama Lengkap</label><input type="text" id="new-nama" placeholder="Nama lengkap..."></div>
+            <div class="add-user-field"><label>Username</label><input type="text" id="new-username" placeholder="username..."></div>
+            <div class="add-user-field"><label>Password</label><input type="password" id="new-password" placeholder="min. 8 karakter..."></div>
+            <div class="add-user-field"><label>Role</label><select id="new-role"><option value="user">User</option><option value="admin">Admin</option></select></div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button class="fb-act-btn" onclick="toggleAddUserForm()">Batal</button>
+            <button class="fb-act-btn resolve" onclick="createUser()">Buat Akun</button>
+          </div>
+        </div>
+
+        <div id="user-list"></div>
+      </div>
+
     </section>
   </div>
 </div>
@@ -829,6 +901,25 @@ input, textarea { font-family: inherit; color: inherit; }
     <div id="fb-detail-content"></div>
     <div style="margin-top:16px;text-align:right;">
       <button class="fb-cancel" onclick="closeFeedbackDetail()">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<!-- Form buat akun -->
+<div id="register-overlay">
+  <div id="register-dialog">
+    <div class="reg-eyebrow">CORE · Daftar Akun</div>
+    <h3>Buat Akun</h3>
+    <p>Isi form di bawah. Akun akan aktif setelah disetujui oleh admin.</p>
+    <div class="reg-field"><label>Nama Lengkap</label><input type="text" id="reg-nama" placeholder="Nama lengkap kamu..."></div>
+    <div class="reg-field"><label>Username</label><input type="text" id="reg-username" placeholder="username..."></div>
+    <div class="reg-field"><label>Password</label><input type="password" id="reg-password" placeholder="min. 8 karakter..."></div>
+    <div class="reg-actions">
+      <button class="reg-cancel" onclick="closeRegisterDialog()">Batal</button>
+      <button class="reg-submit" onclick="submitRegister()">
+        Kirim
+        <span class="arrow"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+      </button>
     </div>
   </div>
 </div>
@@ -1063,14 +1154,19 @@ function switchAdminTab(tab) {
   document.getElementById('tab-database').classList.toggle('active', tab === 'database')
   document.getElementById('tab-feedback').classList.toggle('active', tab === 'feedback')
   document.getElementById('tab-saran').classList.toggle('active', tab === 'saran')
+  const tabPengguna = document.getElementById('tab-pengguna')
+  if (tabPengguna) tabPengguna.classList.toggle('active', tab === 'pengguna')
   const dbGrid = document.querySelector('.admin-grid')
   const fbPanel = document.getElementById('feedback-panel')
   const saranPanel = document.getElementById('saran-panel')
+  const penggunaPanel = document.getElementById('pengguna-panel')
   if (dbGrid) dbGrid.style.display = tab === 'database' ? 'grid' : 'none'
   if (fbPanel) fbPanel.style.display = tab === 'feedback' ? 'flex' : 'none'
   if (saranPanel) saranPanel.style.display = tab === 'saran' ? 'flex' : 'none'
+  if (penggunaPanel) penggunaPanel.style.display = tab === 'pengguna' ? 'flex' : 'none'
   if (tab === 'feedback') loadFeedbackPanel()
   if (tab === 'saran') loadSaranPanel()
+  if (tab === 'pengguna') loadUserPanel()
 }
 
 function toggleAdmin() {
@@ -1558,6 +1654,145 @@ async function submitFeedback() {
 }
 
 // ═══ SARAN & MASUKAN ═══
+// ═══ REGISTER & USER MANAGEMENT ═══
+function openRegisterDialog() {
+  document.getElementById('reg-nama').value = ''
+  document.getElementById('reg-username').value = ''
+  document.getElementById('reg-password').value = ''
+  document.getElementById('register-overlay').classList.add('show')
+}
+function closeRegisterDialog() {
+  document.getElementById('register-overlay').classList.remove('show')
+}
+async function submitRegister() {
+  const nama = document.getElementById('reg-nama').value.trim()
+  const username = document.getElementById('reg-username').value.trim()
+  const password = document.getElementById('reg-password').value
+  if (!nama || !username || !password) { showToast('Semua field wajib diisi.', 'error'); return }
+  if (password.length < 8) { showToast('Password minimal 8 karakter.', 'error'); return }
+  try {
+    const res = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nama_lengkap: nama, username, password })
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Gagal mendaftar')
+    closeRegisterDialog()
+    showToast('Permintaan akun dikirim. Tunggu persetujuan admin.', 'success')
+  } catch(e) { showToast(e.message, 'error') }
+}
+
+function toggleAddUserForm() {
+  document.getElementById('add-user-form').classList.toggle('show')
+}
+
+async function createUser() {
+  const nama = document.getElementById('new-nama').value.trim()
+  const username = document.getElementById('new-username').value.trim()
+  const password = document.getElementById('new-password').value
+  const role = document.getElementById('new-role').value
+  if (!username || !password) { showToast('Username dan password wajib.', 'error'); return }
+  try {
+    const res = await fetch('/api/admin-users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (state.user?.token || '') },
+      body: JSON.stringify({ nama_lengkap: nama, username, password, role })
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Gagal buat user')
+    showToast('Akun berhasil dibuat.', 'success')
+    document.getElementById('new-nama').value = ''
+    document.getElementById('new-username').value = ''
+    document.getElementById('new-password').value = ''
+    toggleAddUserForm()
+    loadUserPanel()
+  } catch(e) { showToast(e.message, 'error') }
+}
+
+async function updateUserStatus(id, status) {
+  try {
+    const res = await fetch('/api/admin-users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (state.user?.token || '') },
+      body: JSON.stringify({ id, status })
+    })
+    if (!res.ok) throw new Error('Gagal update status')
+    const label = status === 'active' ? 'Akun diaktifkan.' : status === 'suspended' ? 'Akun dinonaktifkan.' : 'Disetujui.'
+    showToast(label, 'success')
+    loadUserPanel()
+  } catch(e) { showToast(e.message, 'error') }
+}
+
+async function deleteUser(id, nama) {
+  showConfirm('Hapus Akun', 'Yakin menghapus akun "' + nama + '"? Tindakan ini permanen.', async () => {
+    try {
+      const res = await fetch('/api/admin-users', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (state.user?.token || '') },
+        body: JSON.stringify({ id })
+      })
+      if (!res.ok) throw new Error('Gagal hapus user')
+      showToast('Akun dihapus.', 'success')
+      loadUserPanel()
+    } catch(e) { showToast(e.message, 'error') }
+  })
+}
+
+async function loadUserPanel() {
+  const container = document.getElementById('user-list')
+  container.innerHTML = '<div style="font-size:13px;color:var(--dim);font-family:var(--font-mono);">Memuat...</div>'
+  try {
+    const res = await fetch('/api/admin-users', {
+      headers: { 'Authorization': 'Bearer ' + (state.user?.token || '') }
+    })
+    const data = await res.json()
+    if (!Array.isArray(data.users)) throw new Error('Gagal memuat')
+    const users = data.users
+    const total = users.length
+    const active = users.filter(u => u.status === 'active').length
+    const pending = users.filter(u => u.status === 'pending').length
+    const admins = users.filter(u => u.role === 'admin').length
+    document.getElementById('user-stat-total').textContent = total
+    document.getElementById('user-stat-active').textContent = active
+    document.getElementById('user-stat-pending').textContent = pending
+    document.getElementById('user-stat-admin').textContent = admins
+    container.innerHTML = ''
+    if (users.length === 0) {
+      container.innerHTML = '<div style="font-size:13px;color:var(--dim);font-family:var(--font-mono);padding:16px 0;text-align:center;">Belum ada pengguna.</div>'
+      return
+    }
+    users.forEach(function(u) {
+      const initial = (u.nama_lengkap || u.username || '?').charAt(0).toUpperCase()
+      const lastLogin = u.last_login ? new Date(u.last_login).toLocaleDateString('id-ID', {day:'2-digit',month:'short',year:'numeric'}) : 'Belum pernah'
+      const row = document.createElement('div')
+      row.className = 'user-row'
+      let html = '<div class="user-avatar">' + initial + '</div>'
+      html += '<div class="user-info">'
+      html += '<div class="user-name">' + escHtml(u.nama_lengkap || u.username) + '</div>'
+      html += '<div class="user-meta">@' + escHtml(u.username) + ' · Login terakhir: ' + lastLogin + '</div>'
+      html += '</div>'
+      html += '<span class="user-badge ' + u.role + '">' + u.role + '</span>'
+      html += '<span class="user-badge ' + u.status + '">' + (u.status === 'active' ? 'Aktif' : u.status === 'pending' ? 'Menunggu' : 'Nonaktif') + '</span>'
+      html += '<div class="user-actions">'
+      if (u.status === 'pending') {
+        html += '<button class="user-act-btn approve" onclick="updateUserStatus('' + u.id + '', 'active')">Setujui</button>'
+        html += '<button class="user-act-btn danger" onclick="updateUserStatus('' + u.id + '', 'suspended')">Tolak</button>'
+      } else if (u.status === 'active') {
+        html += '<button class="user-act-btn" onclick="updateUserStatus('' + u.id + '', 'suspended')">Nonaktifkan</button>'
+      } else {
+        html += '<button class="user-act-btn approve" onclick="updateUserStatus('' + u.id + '', 'active')">Aktifkan</button>'
+      }
+      html += '<button class="user-act-btn danger" onclick="deleteUser('' + u.id + '', '' + escHtml(u.nama_lengkap || u.username) + '')">Hapus</button>'
+      html += '</div>'
+      row.innerHTML = html
+      container.appendChild(row)
+    })
+  } catch(e) {
+    container.innerHTML = '<div style="font-size:13px;color:var(--err);font-family:var(--font-mono);">Gagal memuat pengguna.</div>'
+  }
+}
+
 function openSaranDialog() {
   document.getElementById('saran-nama').value = ''
   document.getElementById('saran-kategori').value = ''
