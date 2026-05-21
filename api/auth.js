@@ -1,6 +1,3 @@
-// api/auth.js — Admin login endpoint
-// POST /api/auth  { username, password } → { token, username, role }
-
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
@@ -8,9 +5,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-// Simple JWT-like token: base64(header.payload.signature)
-// Signature = HMAC-SHA256 tidak tersedia di edge tanpa library,
-// jadi kita pakai HMAC sederhana via Web Crypto API
 async function signToken(payload) {
   const secret = process.env.AUTH_SECRET || 'ojk-core-default-secret'
   const encoder = new TextEncoder()
@@ -27,52 +21,45 @@ async function signToken(payload) {
 }
 
 export default async function handler(req, res) {
-  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
   if (req.method === 'OPTIONS') return res.status(200).end()
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   const { username, password } = req.body || {}
-
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Username dan password wajib diisi.' })
-  }
+  if (!username || !password) return res.status(400).json({ error: 'Username dan password wajib diisi.' })
 
   try {
-    // Cari user di tabel core_users
     const { data: user, error } = await supabase
       .from('core_users')
-      .select('id, username, password, role')
+      .select('id, username, password_hash, role, status, nama_lengkap')
       .eq('username', username.trim())
       .single()
 
-    if (error || !user) {
-      return res.status(401).json({ error: 'Username atau password salah.' })
-    }
+    if (error || !user) return res.status(401).json({ error: 'Username atau password salah.' })
 
-    // Compare password (plain text — untuk production gunakan bcrypt)
-    if (user.password !== password) {
-      return res.status(401).json({ error: 'Username atau password salah.' })
-    }
+    if (user.status === 'pending') return res.status(403).json({ error: 'Akun menunggu persetujuan admin.' })
+    if (user.status === 'suspended') return res.status(403).json({ error: 'Akun dinonaktifkan. Hubungi admin.' })
 
-    // Generate token
+    if (user.password_hash !== password) return res.status(401).json({ error: 'Username atau password salah.' })
+
+    // Update last_login
+    await supabase.from('core_users').update({ last_login: new Date().toISOString() }).eq('id', user.id)
+
     const payload = {
       id: user.id,
       username: user.username,
       role: user.role,
       iat: Date.now(),
-      exp: Date.now() + (24 * 60 * 60 * 1000), // 24 jam
+      exp: Date.now() + (24 * 60 * 60 * 1000),
     }
     const token = await signToken(payload)
 
     return res.status(200).json({
       token,
       username: user.username,
+      nama_lengkap: user.nama_lengkap || user.username,
       role: user.role,
     })
 
