@@ -308,11 +308,44 @@ input, textarea { font-family: inherit; color: inherit; }
 .fb-act-btn.ignore:hover { background:var(--dim); border-color:var(--dim); }
 .fb-filter-bar { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
 .fb-filter-sel { font-size:11px; padding:5px 10px; border-radius:100px; border:1px solid var(--line-2); background:var(--surface); color:var(--ink); font-family:var(--font-mono); cursor:pointer; outline:none; }
-.fb-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:20px; }
+.fb-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px; margin-top:0; }
 .fb-stat-box { background:var(--bg); border:1px solid var(--line); border-radius:var(--radius-sm); padding:12px 14px; }
 .fb-stat-val { font-family:var(--font-display); font-size:28px; line-height:1; color:var(--ink); margin-bottom:4px; }
 .fb-stat-lbl { font-family:var(--font-mono); font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); }
 #fb-detail-overlay { display:none; position:fixed; inset:0; background:rgba(10,10,10,.4); backdrop-filter:blur(8px); z-index:1500; align-items:center; justify-content:center; opacity:0; transition:opacity .25s; }
+#saran-fab { position:fixed; bottom:28px; right:28px; z-index:1200; width:48px; height:48px; background:var(--accent); border:none; border-radius:50%; cursor:pointer; display:none; align-items:center; justify-content:center; color:var(--ink); transition:transform .2s,box-shadow .2s; box-shadow:0 4px 16px rgba(255,77,46,.35); }
+#saran-fab:hover { transform:scale(1.08); box-shadow:0 6px 24px rgba(255,77,46,.45); }
+#saran-fab-tooltip { position:fixed; bottom:38px; right:84px; z-index:1200; background:var(--ink); color:var(--bg); font-size:11px; font-family:var(--font-mono); letter-spacing:.1em; padding:5px 10px; border-radius:var(--radius-sm); white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .15s; }
+#saran-fab:hover ~ #saran-fab-tooltip { opacity:1; }
+#saran-overlay { display:none; position:fixed; inset:0; background:rgba(10,10,10,.4); backdrop-filter:blur(8px); z-index:1500; align-items:center; justify-content:center; opacity:0; transition:opacity .25s; }
+#saran-overlay.show { display:flex; opacity:1; }
+#saran-dialog { background:var(--surface-raised); border-radius:var(--radius); padding:28px; max-width:440px; width:92%; box-shadow:0 24px 80px rgba(10,10,10,.25); transform:scale(.95); transition:transform .25s cubic-bezier(.2,.7,.2,1); }
+#saran-overlay.show #saran-dialog { transform:scale(1); }
+#saran-dialog h3 { font-family:var(--font-display); font-size:26px; color:var(--ink); margin-bottom:6px; }
+#saran-dialog p { font-size:13px; color:var(--dim); margin-bottom:20px; line-height:1.55; }
+.saran-field { margin-bottom:12px; }
+.saran-label { font-family:var(--font-mono); font-size:9px; letter-spacing:.16em; text-transform:uppercase; color:var(--dim); margin-bottom:5px; display:block; }
+.saran-input { width:100%; border:1px solid var(--line-2); border-radius:var(--radius-sm); padding:9px 12px; font-size:13px; color:var(--ink); background:var(--bg); font-family:var(--font-body); outline:none; transition:border-color .15s; }
+.saran-input:focus { border-color:var(--ink); }
+.saran-textarea { width:100%; border:1px solid var(--line-2); border-radius:var(--radius-sm); padding:9px 12px; font-size:13px; color:var(--ink); background:var(--bg); font-family:var(--font-body); outline:none; resize:none; height:100px; transition:border-color .15s; }
+.saran-textarea:focus { border-color:var(--ink); }
+.saran-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
+.saran-cancel { background:transparent; border:1px solid var(--line-2); border-radius:100px; color:var(--ink-2); padding:9px 18px; font-size:13px; font-weight:500; cursor:pointer; }
+.saran-submit { background:var(--ink); border:1px solid var(--ink); border-radius:100px; color:var(--bg); padding:9px 18px; font-size:13px; font-weight:500; cursor:pointer; }
+.saran-row { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; margin-bottom:8px; }
+.saran-row-head { display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap; }
+.saran-badge { font-size:10px; padding:2px 8px; border-radius:100px; font-family:var(--font-mono); }
+.saran-badge.baru { background:rgba(255,77,46,.1); color:var(--accent); border:1px solid rgba(255,77,46,.2); }
+.saran-badge.ditindaklanjuti { background:rgba(47,125,91,.12); color:var(--green); border:1px solid rgba(47,125,91,.2); }
+.saran-badge.diabaikan { background:rgba(10,10,10,.06); color:var(--dim); border:1px solid var(--line-2); }
+.saran-isi { font-size:13px; color:var(--ink-2); line-height:1.6; margin-bottom:8px; }
+.saran-meta { font-size:11px; color:var(--dim); font-family:var(--font-mono); display:flex; gap:12px; flex-wrap:wrap; }
+.saran-act-row { display:flex; gap:6px; margin-top:10px; }
+.saran-act-btn { font-size:11px; padding:4px 12px; border-radius:100px; font-family:var(--font-mono); cursor:pointer; border:1px solid var(--line-2); background:var(--surface-raised); color:var(--ink-2); transition:all .15s; }
+.saran-act-btn:hover { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+.saran-act-btn.tindak { border-color:var(--green); color:var(--green); }
+.saran-act-btn.tindak:hover { background:var(--green); color:white; }
+.saran-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
 #fb-detail-overlay.show { display:flex; opacity:1; }
 #fb-detail-dialog { background:var(--surface-raised); border-radius:var(--radius); padding:28px; max-width:560px; width:92%; max-height:80vh; overflow-y:auto; box-shadow:0 24px 80px rgba(10,10,10,.25); }
 #fb-detail-dialog h3 { font-family:var(--font-display); font-size:24px; color:var(--ink); margin-bottom:16px; }
@@ -626,6 +659,7 @@ input, textarea { font-family: inherit; color: inherit; }
       <div class="admin-tabs" style="margin-bottom:0;">
         <div class="admin-tab active" id="tab-database" onclick="switchAdminTab('database')">Database</div>
         <div class="admin-tab" id="tab-feedback" onclick="switchAdminTab('feedback')">Feedback</div>
+        <div class="admin-tab" id="tab-saran" onclick="switchAdminTab('saran')">Saran & Masukan</div>
       </div>
       <div class="admin-tab-content"><div class="admin-grid">
         <div class="admin-card">
@@ -679,7 +713,7 @@ input, textarea { font-family: inherit; color: inherit; }
       </div></div>
 
       <!-- Feedback panel -->
-      <div id="feedback-panel" class="admin-tab-content" style="display:none; flex-direction:column; width:100%; max-width:1100px; margin:0 auto; padding-top:28px;">
+      <div id="feedback-panel" class="admin-tab-content" style="display:none; flex-direction:column; width:100%; max-width:1100px; margin:0 auto;">
         <div class="fb-stats">
           <div class="fb-stat-box"><div class="fb-stat-val" id="fb-stat-total">0</div><div class="fb-stat-lbl">Total</div></div>
           <div class="fb-stat-box"><div class="fb-stat-val" id="fb-stat-pending" style="color:#E8B84B;">0</div><div class="fb-stat-lbl">Menunggu</div></div>
@@ -701,6 +735,32 @@ input, textarea { font-family: inherit; color: inherit; }
           <button class="fb-filter-sel" onclick="exportFeedback()" style="cursor:pointer;background:var(--ink);color:var(--bg);border-color:var(--ink);padding:5px 14px;">Export</button>
         </div>
         <div id="fb-list"></div>
+      </div>
+
+      <!-- Saran panel -->
+      <div id="saran-panel" class="admin-tab-content" style="display:none; flex-direction:column; width:100%; max-width:1100px; margin:0 auto;">
+        <div class="saran-stats">
+          <div class="fb-stat-box"><div class="fb-stat-val" id="saran-stat-total">0</div><div class="fb-stat-lbl">Total</div></div>
+          <div class="fb-stat-box"><div class="fb-stat-val" id="saran-stat-baru" style="color:var(--accent);">0</div><div class="fb-stat-lbl">Baru</div></div>
+          <div class="fb-stat-box"><div class="fb-stat-val" id="saran-stat-done" style="color:var(--green);">0</div><div class="fb-stat-lbl">Ditindaklanjuti</div></div>
+        </div>
+        <div class="fb-filter-bar">
+          <select class="fb-filter-sel" id="saran-filter-status" onchange="loadSaranPanel()">
+            <option value="all">Semua status</option>
+            <option value="baru">Baru</option>
+            <option value="ditindaklanjuti">Ditindaklanjuti</option>
+            <option value="diabaikan">Diabaikan</option>
+          </select>
+          <select class="fb-filter-sel" id="saran-filter-kat" onchange="loadSaranPanel()">
+            <option value="all">Semua kategori</option>
+            <option value="Saran fitur">Saran fitur</option>
+            <option value="Bug">Bug</option>
+            <option value="Konten POJK">Konten POJK</option>
+            <option value="Lainnya">Lainnya</option>
+          </select>
+          <button class="fb-filter-sel" onclick="exportSaran()" style="cursor:pointer;background:var(--ink);color:var(--bg);border-color:var(--ink);padding:5px 14px;margin-left:auto;">Export Word</button>
+        </div>
+        <div id="saran-list"></div>
       </div>
 
     </section>
@@ -735,6 +795,42 @@ input, textarea { font-family: inherit; color: inherit; }
     <div id="fb-detail-content"></div>
     <div style="margin-top:16px;text-align:right;">
       <button class="fb-cancel" onclick="closeFeedbackDetail()">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<!-- Floating saran button -->
+<button id="saran-fab" onclick="openSaranDialog()" title="Saran & Masukan">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+</button>
+<div id="saran-fab-tooltip">Saran &amp; Masukan</div>
+
+<!-- Form saran -->
+<div id="saran-overlay">
+  <div id="saran-dialog">
+    <h3>Saran &amp; Masukan</h3>
+    <p>Sampaikan ide, saran fitur, atau masukan tentang CORE. Semua masukan akan ditinjau oleh admin.</p>
+    <div class="saran-field">
+      <label class="saran-label">Nama <span style="color:var(--dim-2)">(opsional)</span></label>
+      <input class="saran-input" type="text" id="saran-nama" placeholder="Nama kamu...">
+    </div>
+    <div class="saran-field">
+      <label class="saran-label">Kategori</label>
+      <select class="saran-input" id="saran-kategori">
+        <option value="">Pilih kategori...</option>
+        <option value="Saran fitur">Saran fitur</option>
+        <option value="Bug">Bug</option>
+        <option value="Konten POJK">Konten POJK</option>
+        <option value="Lainnya">Lainnya</option>
+      </select>
+    </div>
+    <div class="saran-field">
+      <label class="saran-label">Saran / Masukan</label>
+      <textarea class="saran-textarea" id="saran-isi" placeholder="Tuliskan saran atau masukan kamu..."></textarea>
+    </div>
+    <div class="saran-actions">
+      <button class="saran-cancel" onclick="closeSaranDialog()">Batal</button>
+      <button class="saran-submit" onclick="submitSaran()">Kirim</button>
     </div>
   </div>
 </div>
@@ -813,6 +909,7 @@ function animateSlot(el, finalVal) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+
   ['login-username','login-password'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => {
       if (e.key === 'Enter') doLogin()
@@ -899,7 +996,7 @@ function enterApp() {
   document.getElementById('user-display-name').textContent = u.username
   document.getElementById('user-display-role').textContent = u.role === 'admin' ? 'Administrator' : 'Guest'
   if (u.role === 'admin') document.getElementById('admin-toggle-btn').style.display = 'flex'
-  showView('app')
+  showView("app"); document.getElementById("saran-fab").style.display="flex"; document.getElementById("saran-fab-tooltip").style.display="block"
   loadPojkList()
   document.getElementById('qinput').focus()
 }
@@ -917,7 +1014,7 @@ function doLogout() {
     document.getElementById('login-username').value = ''
     document.getElementById('login-password').value = ''
     document.getElementById('login-error').style.display = 'none'
-    showPanel('chat'); showView('login'); resetChat()
+    showPanel("chat"); showView("login"); resetChat(); document.getElementById("saran-fab").style.display="none"; document.getElementById("saran-fab-tooltip").style.display="none"
   }, 'Keluar')
 }
 
@@ -930,16 +1027,15 @@ function toggleSidebar() {
 function switchAdminTab(tab) {
   document.getElementById('tab-database').classList.toggle('active', tab === 'database')
   document.getElementById('tab-feedback').classList.toggle('active', tab === 'feedback')
+  document.getElementById('tab-saran').classList.toggle('active', tab === 'saran')
   const dbGrid = document.querySelector('.admin-grid')
   const fbPanel = document.getElementById('feedback-panel')
-  if (tab === 'database') {
-    if (dbGrid) dbGrid.style.display = 'grid'
-    if (fbPanel) fbPanel.style.display = 'none'
-  } else {
-    if (dbGrid) dbGrid.style.display = 'none'
-    if (fbPanel) fbPanel.style.display = 'flex'
-    loadFeedbackPanel()
-  }
+  const saranPanel = document.getElementById('saran-panel')
+  if (dbGrid) dbGrid.style.display = tab === 'database' ? 'grid' : 'none'
+  if (fbPanel) fbPanel.style.display = tab === 'feedback' ? 'flex' : 'none'
+  if (saranPanel) saranPanel.style.display = tab === 'saran' ? 'flex' : 'none'
+  if (tab === 'feedback') loadFeedbackPanel()
+  if (tab === 'saran') loadSaranPanel()
 }
 
 function toggleAdmin() {
@@ -1400,6 +1496,140 @@ async function submitFeedback() {
   closeFeedbackDialog()
   await saveFeedback('negative', pendingFeedbackMsg || {}, reason, detail)
   showToast('Terima kasih. Feedback dicatat untuk ditinjau.', 'success')
+}
+
+// ═══ SARAN & MASUKAN ═══
+function openSaranDialog() {
+  document.getElementById('saran-nama').value = ''
+  document.getElementById('saran-kategori').value = ''
+  document.getElementById('saran-isi').value = ''
+  document.getElementById('saran-overlay').classList.add('show')
+}
+function closeSaranDialog() {
+  document.getElementById('saran-overlay').classList.remove('show')
+}
+async function submitSaran() {
+  const nama = document.getElementById('saran-nama').value.trim()
+  const kategori = document.getElementById('saran-kategori').value
+  const isi = document.getElementById('saran-isi').value.trim()
+  if (!kategori) { showToast('Pilih kategori terlebih dahulu.', 'error'); return }
+  if (!isi) { showToast('Isi saran tidak boleh kosong.', 'error'); return }
+  try {
+    await fetch(SUPA_URL + '/rest/v1/core_suggestions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON, 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ nama: nama || null, kategori, isi }),
+    })
+    closeSaranDialog()
+    showToast('Terima kasih! Saran kamu sudah diterima.', 'success')
+  } catch(e) {
+    showToast('Gagal mengirim saran. Coba lagi.', 'error')
+  }
+}
+
+async function loadSaranPanel() {
+  const container = document.getElementById('saran-list')
+  container.innerHTML = '<div style="font-size:13px;color:var(--dim);font-family:var(--font-mono);">Memuat...</div>'
+  try {
+    const res = await fetch(SUPA_URL + '/rest/v1/core_suggestions?select=*&order=created_at.desc&limit=200', {
+      headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON }
+    })
+    const data = await res.json()
+    if (!Array.isArray(data)) throw new Error('Gagal memuat')
+    const statusFilter = document.getElementById('saran-filter-status') ? document.getElementById('saran-filter-status').value : 'all'
+    const katFilter = document.getElementById('saran-filter-kat') ? document.getElementById('saran-filter-kat').value : 'all'
+    let filtered = data
+    if (statusFilter !== 'all') filtered = filtered.filter(function(d) { return d.status === statusFilter })
+    if (katFilter !== 'all') filtered = filtered.filter(function(d) { return d.kategori === katFilter })
+    const baru = data.filter(function(d) { return d.status === 'baru' }).length
+    const done = data.filter(function(d) { return d.status === 'ditindaklanjuti' }).length
+    const statTotal = document.getElementById('saran-stat-total')
+    const statBaru = document.getElementById('saran-stat-baru')
+    const statDone = document.getElementById('saran-stat-done')
+    if (statTotal) statTotal.textContent = data.length
+    if (statBaru) statBaru.textContent = baru
+    if (statDone) statDone.textContent = done
+    container.innerHTML = ''
+    if (filtered.length === 0) {
+      container.innerHTML = '<div style="font-size:13px;color:var(--dim);font-family:var(--font-mono);padding:16px 0;text-align:center;">Tidak ada saran.</div>'
+      return
+    }
+    filtered.forEach(function(s) {
+      const date = new Date(s.created_at).toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' })
+      const statusLabel = s.status === 'baru' ? 'Baru' : s.status === 'ditindaklanjuti' ? 'Ditindaklanjuti' : 'Diabaikan'
+      const row = document.createElement('div')
+      row.className = 'saran-row'
+      let html = '<div class="saran-row-head">'
+      html += '<span style="font-size:10px;font-family:var(--font-mono);color:var(--dim-2);">#' + String(s.id).padStart(3,'0') + '</span>'
+      html += '<span class="saran-badge ' + s.status + '">' + statusLabel + '</span>'
+      html += '<span style="font-size:11px;padding:2px 8px;border-radius:100px;font-family:var(--font-mono);background:var(--bg);border:1px solid var(--line-2);color:var(--dim);">' + escHtml(s.kategori) + '</span>'
+      html += '<span style="margin-left:auto;font-size:11px;color:var(--dim);font-family:var(--font-mono);">' + (s.nama ? escHtml(s.nama) + ' · ' : '') + date + '</span>'
+      html += '</div>'
+      html += '<div class="saran-isi">' + escHtml(s.isi) + '</div>'
+      if (s.status === 'baru') {
+        html += '<div class="saran-act-row">'
+        html += '<button class="saran-act-btn tindak" onclick="updateSaranStatus(' + s.id + ',\'ditindaklanjuti\')">Tandai ditindaklanjuti</button>'
+        html += '<button class="saran-act-btn" onclick="updateSaranStatus(' + s.id + ',\'diabaikan\')">Abaikan</button>'
+        html += '</div>'
+      }
+      row.innerHTML = html
+      container.appendChild(row)
+    })
+  } catch(e) {
+    container.innerHTML = '<div style="font-size:13px;color:var(--err);font-family:var(--font-mono);">Gagal memuat saran.</div>'
+  }
+}
+
+async function updateSaranStatus(id, status) {
+  try {
+    await fetch(SUPA_URL + '/rest/v1/core_suggestions?id=eq.' + id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON, 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ status }),
+    })
+    showToast(status === 'ditindaklanjuti' ? 'Ditandai ditindaklanjuti.' : 'Diabaikan.', 'success')
+    loadSaranPanel()
+  } catch(e) {
+    showToast('Gagal update status.', 'error')
+  }
+}
+
+async function exportSaran() {
+  try {
+    const res = await fetch(SUPA_URL + '/rest/v1/core_suggestions?select=*&order=created_at.desc&limit=500', {
+      headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON }
+    })
+    const data = await res.json()
+    if (!Array.isArray(data) || data.length === 0) { showToast('Belum ada saran.', 'error'); return }
+    const now = new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' })
+    let rows = ''
+    data.forEach(function(s) {
+      const date = new Date(s.created_at).toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric' })
+      const statusLabel = s.status === 'baru' ? 'Baru' : s.status === 'ditindaklanjuti' ? 'Ditindaklanjuti' : 'Diabaikan'
+      rows += '<tr>'
+      rows += '<td style="padding:10px 8px;border-bottom:1px solid #E2E8F0;vertical-align:top;font-size:12px;color:#64748B;">#' + String(s.id).padStart(3,'0') + '<br>' + date + '</td>'
+      rows += '<td style="padding:10px 8px;border-bottom:1px solid #E2E8F0;vertical-align:top;font-size:12px;">' + (s.nama || '-') + '</td>'
+      rows += '<td style="padding:10px 8px;border-bottom:1px solid #E2E8F0;vertical-align:top;font-size:12px;">' + s.kategori + '</td>'
+      rows += '<td style="padding:10px 8px;border-bottom:1px solid #E2E8F0;vertical-align:top;font-size:13px;line-height:1.6;">' + s.isi + '</td>'
+      rows += '<td style="padding:10px 8px;border-bottom:1px solid #E2E8F0;vertical-align:top;font-size:12px;color:' + (s.status === 'baru' ? '#FF4D2E' : s.status === 'ditindaklanjuti' ? '#2F7D5B' : '#6E6A60') + ';">' + statusLabel + '</td>'
+      rows += '</tr>'
+    })
+    const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>CORE Saran</title><style>body{font-family:Calibri,Arial,sans-serif;margin:40px;}h1{color:#0F2B4E;font-size:20px;}table{width:100%;border-collapse:collapse;}th{background:#F4F1EA;padding:10px 8px;text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#6E6A60;border-bottom:2px solid #0F2B4E;}td{vertical-align:top;}</style></head><body>'
+      + '<h1>CORE — Saran &amp; Masukan</h1>'
+      + '<p style="font-size:12px;color:#64748B;margin-bottom:20px;">Diekspor: ' + now + ' &nbsp;·&nbsp; Total: ' + data.length + ' saran</p>'
+      + '<table><thead><tr><th>No / Tanggal</th><th>Nama</th><th>Kategori</th><th>Isi Saran</th><th>Status</th></tr></thead><tbody>' + rows + '</tbody></table>'
+      + '</body></html>'
+    const blob = new Blob(['﻿', html], { type: 'application/msword' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'CORE_Saran_Masukan_' + new Date().toISOString().slice(0,10) + '.doc'
+    a.click()
+    URL.revokeObjectURL(url)
+    showToast('Export berhasil.', 'success')
+  } catch(e) {
+    showToast('Export gagal: ' + e.message, 'error')
+  }
 }
 
 async function saveAdminNote(id, note) {
