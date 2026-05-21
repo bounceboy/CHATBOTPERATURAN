@@ -1479,10 +1479,10 @@ function applyFeedbackFilter(data) {
     html += '</div>'
     if (fb.detail) html += '<div class="fb-detail-text">' + escHtml(fb.detail) + '</div>'
     html += '<div class="fb-actions-row">'
-    html += '<button class="fb-act-btn" onclick='showFeedbackDetail(' + fbDataStr + ')'>Lihat detail</button>'
+    html += '<button class="fb-act-btn" onclick="showFeedbackDetail(this)" data-fb="' + escHtml(JSON.stringify(fb)) + '">Lihat detail</button>'
     if (fb.status === 'pending') {
-      html += '<button class="fb-act-btn resolve" onclick="updateFeedbackStatus(' + fb.id + ','resolved',this)">Tandai selesai</button>'
-      html += '<button class="fb-act-btn ignore" onclick="updateFeedbackStatus(' + fb.id + ','ignored',this)">Abaikan</button>'
+      html += '<button class="fb-act-btn resolve" onclick="updateFeedbackStatus(' + fb.id + ',\'resolved\',this)">Tandai selesai</button>'
+      html += '<button class="fb-act-btn ignore" onclick="updateFeedbackStatus(' + fb.id + ',\'ignored\',this)">Abaikan</button>'
     }
     html += '</div>'
 
@@ -1491,7 +1491,8 @@ function applyFeedbackFilter(data) {
   })
 }
 
-function showFeedbackDetail(fb) {
+function showFeedbackDetail(btn) {
+  const fb = JSON.parse(btn.getAttribute('data-fb') || '{}')
   const sources = Array.isArray(fb.sources) ? fb.sources.map(function(s) { return s.source || s.pasal || '' }).filter(Boolean).join(', ') : '-'
   let html = ''
   html += '<div class="fb-detail-section">'
