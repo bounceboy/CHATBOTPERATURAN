@@ -1188,83 +1188,133 @@ function handlePojkFileSelect(e) {
 
 async function uploadPojkBatch(files) {
   const oversized = files.filter(f => f.size > 50 * 1024 * 1024)
-  if (oversized.length) {
-    showToast(`${oversized.length} file melebihi 50MB dan dilewati.`, 'error')
-    files = files.filter(f => f.size <= 50 * 1024 * 1024)
-  }
+  if (oversized.length) { showToast(oversized.length + ' file melebihi 50MB.', 'error'); files = files.filter(f => f.size <= 50 * 1024 * 1024) }
   if (!files.length) return
-
   const queueEl = document.getElementById('batch-queue')
-  queueEl.innerHTML = ''
-  queueEl.style.display = 'flex'
-
+  queueEl.innerHTML = ''; queueEl.style.display = 'flex'
   const items = files.map((file, i) => {
-    const div = document.createElement('div')
-    div.className = 'batch-item'
-    div.id = `bi-${i}`
-    div.innerHTML = `
-      <span style="font-size:14px;">📄</span>
-      <span class="bi-name">${escHtml(file.name)}</span>
-      <span class="bi-status pending" id="bi-status-${i}">Menunggu...</span>`
-    queueEl.appendChild(div)
-    return { file, index: i }
+    const div = document.createElement('div'); div.className = 'batch-item'; div.id = 'bi-' + i
+    div.innerHTML = '<span style="font-size:14px;">📄</span><span class="bi-name">' + escHtml(file.name) + '</span><span class="bi-status pending" id="bi-status-' + i + '">Menunggu...</span>'
+    queueEl.appendChild(div); return { file, index: i }
   })
+  const summary = document.createElement('div'); summary.className = 'batch-summary'; summary.id = 'batch-summary'
+  summary.textContent = '0 / ' + files.length + ' selesai'; queueEl.appendChild(summary)
 
-  const summary = document.createElement('div')
-  summary.className = 'batch-summary'
-  summary.id = 'batch-summary'
-  summary.textContent = `0 / ${files.length} selesai`
-  queueEl.appendChild(summary)
-
-  async function embedBatch(texts) {
-    const OPENAI_KEY = state.openaiKey
-    if (!OPENAI_KEY) throw new Error('OpenAI key belum diset. Buka console dan jalankan: localStorage.setItem("openai_key","sk-...")')
-    const res = await fetch('https://api.openai.com/v1/embeddings', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'text-embedding-3-small', input: texts }),
-    })
-    if (!res.ok) { const err = await res.json(); throw new Error('OpenAI error: ' + (err.error?.message || res.status)) }
-    const data = await res.json()
-    return data.data.map(d => d.embedding)
-  }
-
-  let done = 0, failed = 0
-  for (const { file, index } of items) {
-    const statusEl = document.getElementById(`bi-status-${index}`)
-    try {
-      // pipeline baru dimulai di blok extractTextPdfJs di atas
-      const BATCH_SIZE = 20
-      for (let si = 0; si < embeddedChunks.length; si += BATCH_SIZE) {
-        const batch = embeddedChunks.slice(si, si + BATCH_SIZE).map(c => ({
-          pojk_id, pasal: c.pasal, bab: c.bab || null, bab_title: c.bab_title || null,
-          content: c.content, source: c.source, embedding: c.embedding
-        }))
-        const sr = await fetch(_SUPA_URL + '/rest/v1/pojk_chunks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'apikey': _SUPA_KEY, 'Authorization': 'Bearer ' + _SUPA_KEY, 'Prefer': 'return=minimal' },
-          body: JSON.stringify(batch)
-        })
-        if (!sr.ok) { const se = await sr.text(); throw new Error('Supabase insert gagal: ' + se) }
-        const saved = Math.min(si + BATCH_SIZE, embeddedChunks.length)
-        statusEl.textContent = 'Menyimpan ' + saved + '/' + embeddedChunks.length + '...'
-      }
-      statusEl.className = 'bi-status done'
-      statusEl.textContent = `✓ ${embeddedChunks.length} chunks`
-      done++
-    } catch(e) {
-      statusEl.className = 'bi-status error'; statusEl.textContent = `✗ Gagal`
-      document.getElementById(`bi-${index}`).title = e.message
-      console.error(`[upload] ${file.name}:`, e.message)
-      failed++
+  async function extractText(file) {
+    const pdfjsLib = window['pdfjs-dist/build/pdf']
+    if (!pdfjsLib) throw new Error('pdf.js belum dimuat. Coba refresh halaman.')
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js'
+    const buf = await file.arrayBuffer()
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise
+    let txt = ''
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const pg = await pdf.getPage(i)
+      const tc = await pg.getTextContent()
+      txt += tc.items.map(x => x.str).join(' ') + '\n'
     }
-    document.getElementById('batch-summary').textContent =
-      `${done} / ${files.length} selesai${failed > 0 ? ` · ${failed} gagal` : ''}`
+    return txt
   }
-  loadPojkList(); setTimeout(() => loadAdminData(), 300)
-  if (failed === 0) showToast(`${done} POJK berhasil diupload!`, 'success')
-  else showToast(`${done} berhasil, ${failed} gagal.`, failed === files.length ? 'error' : 'info')
+
+  function parseMeta(filename) {
+    const m = filename.match(/pojk[_\s./No.-]*(\d+)[_\s./TahunNo.-]*(\d{4})/i)
+    if (m) return { nomor: m[1]+'/'+m[2], nama: 'POJK No. '+m[1]+' Tahun '+m[2], tahun: parseInt(m[2]) }
+    const s = filename.match(/seojk[_\s./No.-]*(\d+)[_\s./TahunNo.-]*(\d{4})/i)
+    if (s) return { nomor: 'SE-'+s[1]+'/'+s[2], nama: 'SEOJK No. '+s[1]+' Tahun '+s[2], tahun: parseInt(s[2]) }
+    const t = filename.match(/(\d{4})/); const yr = t ? parseInt(t[1]) : new Date().getFullYear()
+    return { nomor: 'upload-'+Date.now(), nama: filename.replace(/\.pdf$/i,'').replace(/[_-]/g,' ').trim(), tahun: yr }
+  }
+
+  function getTitle(text) {
+    const m = text.match(/TENTANG\s+([\s\S]{10,300}?)(?:\n\s*\n|\bDENGAN\b|\bMENIMBANG\b)/i)
+    return m ? m[1].replace(/\s+/g,' ').trim().substring(0,200) : null
+  }
+
+  function makeChunks(fullText, sourceName, title) {
+    const chunks = [], prefix = title ? '['+sourceName+' — '+title+']\n' : '['+sourceName+']\n'
+    const secs = fullText.split(/(?=\nPasal\s+\d+\b)/gi)
+    for (const sec of secs) {
+      const pm = sec.match(/^[\s\n]*(Pasal\s+\d+)\b/i)
+      const pasal = pm ? pm[1].trim() : 'Bagian '+(chunks.length+1)
+      const text = sec.trim(); if (text.length < 30) continue
+      if (text.length > 1800) {
+        for (let i = 0; i < text.length; i += 1300) { const sub = text.slice(i,i+1500).trim(); if (sub.length>30) chunks.push({pasal,content:prefix+sub}) }
+      } else { chunks.push({pasal,content:prefix+text}) }
+    }
+    if (!chunks.length && fullText.trim().length>0) {
+      for (let i=0;i<fullText.length;i+=850) { const sub=fullText.slice(i,i+1000).trim(); if(sub.length>50) chunks.push({pasal:'Bagian '+(Math.floor(i/850)+1),content:prefix+sub}) }
+    }
+    return chunks
+  }
+
+  async function embed(texts) {
+    const key = state.openaiKey; if (!key) throw new Error('OpenAI key belum diset di Settings.')
+    const r = await fetch('https://api.openai.com/v1/embeddings',{method:'POST',headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({model:'text-embedding-3-small',input:texts})})
+    if (!r.ok) { const e=await r.json(); throw new Error('OpenAI: '+(e.error?.message||r.status)) }
+    return (await r.json()).data.map(d=>d.embedding)
+  }
+
+  let done=0, failed=0
+  for (const {file, index} of items) {
+    const statusEl = document.getElementById('bi-status-'+index)
+    try {
+      const meta = parseMeta(file.name)
+
+      statusEl.className='bi-status uploading'; statusEl.textContent='Mengunggah PDF...'
+      const storageKey = 'pojk/'+Date.now()+'_'+file.name.replace(/\s+/g,'_')
+      const up = await fetch(SUPA_URL+'/storage/v1/object/pojk-files/'+storageKey,{method:'POST',headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON,'Content-Type':'application/pdf','x-upsert':'false'},body:file})
+      if (!up.ok) throw new Error('Upload storage gagal: '+up.status)
+      const fileUrl = SUPA_URL+'/storage/v1/object/public/pojk-files/'+storageKey
+
+      statusEl.textContent='Mengekstrak teks...'
+      const fullText = await extractText(file)
+      if (!fullText||fullText.trim().length<100) throw new Error('Teks tidak berhasil diekstrak. Pastikan PDF bukan hasil scan.')
+
+      const title = getTitle(fullText)
+      const chunks = makeChunks(fullText, meta.nama, title)
+      if (!chunks.length) throw new Error('Tidak ada chunk yang berhasil dibuat.')
+
+      const ex = await fetch(SUPA_URL+'/rest/v1/pojk_list?nomor=eq.'+encodeURIComponent(meta.nomor)+'&select=id',{headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON}})
+      const exData = await ex.json()
+      if (Array.isArray(exData)&&exData.length>0) {
+        const old = exData[0].id
+        await fetch(SUPA_URL+'/rest/v1/pojk_chunks?pojk_id=eq.'+old,{method:'DELETE',headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON}})
+        await fetch(SUPA_URL+'/rest/v1/pojk_list?id=eq.'+old,{method:'DELETE',headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON}})
+      }
+
+      const lr = await fetch(SUPA_URL+'/rest/v1/pojk_list',{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON,'Prefer':'return=representation'},body:JSON.stringify({nomor:meta.nomor,nama:meta.nama,tahun:meta.tahun,jumlah_pasal:chunks.length,file_url:fileUrl})})
+      if (!lr.ok) throw new Error('Insert pojk_list gagal')
+      const pojk_id = (await lr.json())[0].id
+
+      statusEl.textContent='Embedding '+chunks.length+' chunks...'
+      const BATCH=50, emb=[]
+      for (let i=0;i<chunks.length;i+=BATCH) {
+        const b=chunks.slice(i,i+BATCH), vecs=await embed(b.map(c=>c.content))
+        b.forEach((c,j)=>emb.push({...c,embedding:vecs[j]}))
+        statusEl.textContent='Embedding '+(i+b.length)+'/'+chunks.length+' ('+Math.round(((i+b.length)/chunks.length)*100)+'%)...'
+      }
+
+      statusEl.textContent='Menyimpan...'
+      const BS=20
+      for (let si=0;si<emb.length;si+=BS) {
+        const batch=emb.slice(si,si+BS).map(c=>({pojk_id,pasal:c.pasal,bab:null,bab_title:null,content:c.content,source:meta.nama,embedding:c.embedding}))
+        const sr=await fetch(SUPA_URL+'/rest/v1/pojk_chunks',{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON,'Prefer':'return=minimal'},body:JSON.stringify(batch)})
+        if (!sr.ok) throw new Error('Supabase insert gagal: '+await sr.text())
+        statusEl.textContent='Menyimpan '+Math.min(si+BS,emb.length)+'/'+emb.length+'...'
+      }
+
+      statusEl.className='bi-status done'; statusEl.textContent='✓ '+emb.length+' chunks'; done++
+    } catch(e) {
+      statusEl.className='bi-status error'; statusEl.textContent='✗ Gagal'
+      document.getElementById('bi-'+index).title=e.message
+      console.error('[upload]',file.name+':',e.message); failed++
+    }
+    document.getElementById('batch-summary').textContent=done+' / '+files.length+' selesai'+(failed>0?' · '+failed+' gagal':'')
+  }
+  loadPojkList(); setTimeout(()=>loadAdminData(),300)
+  if (failed===0) showToast(done+' POJK berhasil diupload!','success')
+  else showToast(done+' berhasil, '+failed+' gagal.',failed===files.length?'error':'info')
 }
+
 
 async function deletePojk(id, nama) {
   showConfirm('Hapus POJK', `Yakin menghapus "${nama}"? Seluruh data pasal akan dihapus permanen.`, async () => {
