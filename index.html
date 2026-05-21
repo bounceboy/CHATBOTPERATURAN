@@ -267,28 +267,39 @@ input, textarea { font-family: inherit; color: inherit; }
 @keyframes spin { to{transform:rotate(360deg)} }
 .thinking-text { font-family:var(--font-mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; }
 .model-badge { display:inline-flex; align-items:center; font-family:var(--font-mono); font-size:10px; color:var(--dim-2); padding-left:30px; letter-spacing:.08em; }
-.feedback-row { display:flex; align-items:center; gap:6px; padding-left:30px; margin-top:6px; }
-.fb-btn { background:transparent; border:1px solid var(--line-2); border-radius:100px; padding:4px 10px; font-size:11px; font-family:var(--font-mono); cursor:pointer; color:var(--dim); transition:all .15s; display:flex; align-items:center; gap:5px; letter-spacing:.08em; }
-.fb-btn:hover { border-color:var(--ink); color:var(--ink); }
-.fb-btn.pos.active { background:rgba(47,125,91,.1); border-color:var(--green); color:var(--green); }
-.fb-btn.neg.active { background:rgba(200,52,28,.1); border-color:var(--err); color:var(--err); }
+.feedback-row { display:flex; align-items:center; gap:6px; padding-left:30px; margin-top:8px; }
+.fb-sep { width:1px; height:14px; background:var(--line-2); }
+.fb-label { font-family:var(--font-mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim-2); margin-right:2px; }
+.fb-btn { background:transparent; border:1px solid var(--line-2); border-radius:100px; padding:4px 12px; font-size:11px; font-family:var(--font-mono); cursor:pointer; color:var(--dim); transition:all .15s; display:flex; align-items:center; gap:6px; letter-spacing:.08em; }
+.fb-btn:hover { border-color:var(--ink-2); color:var(--ink); background:rgba(10,10,10,.03); }
+.fb-btn.pos.active { background:rgba(47,125,91,.08); border-color:rgba(47,125,91,.4); color:var(--green); }
+.fb-btn.neg.active { background:rgba(200,52,28,.08); border-color:rgba(200,52,28,.4); color:var(--err); }
 #fb-overlay { display:none; position:fixed; inset:0; background:rgba(10,10,10,.4); backdrop-filter:blur(8px); z-index:1500; align-items:center; justify-content:center; opacity:0; transition:opacity .25s; }
 #fb-overlay.show { display:flex; opacity:1; }
-#fb-dialog { background:var(--surface-raised); border-radius:var(--radius); padding:28px; max-width:400px; width:90%; box-shadow:0 24px 80px rgba(10,10,10,.25); transform:scale(.95); transition:transform .25s cubic-bezier(.2,.7,.2,1); }
+#fb-dialog { background:var(--surface-raised); border-radius:var(--radius); padding:32px; max-width:420px; width:90%; box-shadow:0 24px 80px rgba(10,10,10,.25); transform:scale(.95); transition:transform .25s cubic-bezier(.2,.7,.2,1); }
 #fb-overlay.show #fb-dialog { transform:scale(1); }
-#fb-dialog h3 { font-family:var(--font-display); font-size:26px; color:var(--ink); margin-bottom:6px; }
-#fb-dialog p { font-size:13px; color:var(--dim); margin-bottom:18px; }
-.fb-select { width:100%; border:1px solid var(--line-2); border-radius:var(--radius-sm); padding:9px 12px; font-size:13px; color:var(--ink); background:var(--bg); font-family:var(--font-body); outline:none; margin-bottom:10px; }
-.fb-select:focus { border-color:var(--ink); }
-.fb-textarea { width:100%; border:1px solid var(--line-2); border-radius:var(--radius-sm); padding:9px 12px; font-size:13px; color:var(--ink); background:var(--bg); font-family:var(--font-body); outline:none; resize:none; height:80px; margin-bottom:18px; }
-.fb-textarea:focus { border-color:var(--ink); }
-.fb-actions { display:flex; gap:8px; justify-content:flex-end; }
-.fb-cancel { background:transparent; border:1px solid var(--line-2); border-radius:100px; color:var(--ink-2); padding:9px 18px; font-size:13px; font-weight:500; cursor:pointer; }
-.fb-submit { background:var(--ink); border:1px solid var(--ink); border-radius:100px; color:var(--bg); padding:9px 18px; font-size:13px; font-weight:500; cursor:pointer; }
-.admin-tabs { display:flex; gap:0; border-bottom:1px solid var(--line); margin-bottom:0; }
+.fb-dialog-eyebrow { font-family:var(--font-mono); font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:var(--dim); margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+.fb-dialog-eyebrow::before { content:''; width:18px; height:1px; background:var(--line-3); }
+#fb-dialog h3 { font-family:var(--font-display); font-size:32px; line-height:1.05; color:var(--ink); margin-bottom:6px; letter-spacing:-.01em; }
+#fb-dialog p { font-size:13px; color:var(--dim); margin-bottom:24px; line-height:1.55; }
+.fb-field { margin-bottom:18px; }
+.fb-field label { display:block; font-family:var(--font-mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); margin-bottom:6px; }
+.fb-field select, .fb-field textarea { width:100%; background:transparent; border:none; border-bottom:1px solid var(--line-2); padding:8px 0; font-size:14px; color:var(--ink); font-family:var(--font-body); outline:none; transition:border-color .2s; -webkit-appearance:none; }
+.fb-field select:focus, .fb-field textarea:focus { border-color:var(--accent); }
+.fb-field textarea { resize:none; height:72px; display:block; padding-top:6px; }
+.fb-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:24px; }
+.fb-cancel { background:transparent; border:1px solid var(--line-2); border-radius:100px; color:var(--ink-2); padding:10px 20px; font-size:13px; font-weight:500; cursor:pointer; transition:all .15s; font-family:var(--font-body); }
+.fb-cancel:hover { border-color:var(--ink); }
+.fb-submit { background:var(--ink); border:1px solid var(--ink); border-radius:100px; color:var(--bg); padding:10px 20px; font-size:13px; font-weight:500; cursor:pointer; transition:background .15s; font-family:var(--font-body); display:flex; align-items:center; gap:8px; }
+.fb-submit:hover { background:#1C1C1C; }
+.fb-submit .arrow { display:inline-flex; width:18px; height:18px; background:var(--accent); color:var(--ink); border-radius:50%; align-items:center; justify-content:center; }
+.admin-tabs { display:flex; gap:0; border-bottom:1px solid var(--line); margin-bottom:0; padding:0 4px; }
 .admin-tab-content { padding-top:28px; margin-top:0; }
-.admin-tab { padding:10px 18px; font-size:12px; font-family:var(--font-mono); letter-spacing:.12em; text-transform:uppercase; color:var(--dim); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; transition:all .15s; }
-.admin-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+.admin-tab { padding:12px 18px; font-size:10px; font-family:var(--font-mono); letter-spacing:.16em; text-transform:uppercase; color:var(--dim-2); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; transition:all .15s; display:flex; align-items:center; gap:7px; }
+.admin-tab:hover { color:var(--ink-2); }
+.admin-tab.active { color:var(--ink); border-bottom-color:var(--ink); }
+.admin-tab .tab-dot { width:5px; height:5px; border-radius:50%; background:var(--line-3); transition:background .15s; }
+.admin-tab.active .tab-dot { background:var(--accent); }
 .fb-row { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; margin-bottom:8px; }
 .fb-row-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
 .fb-num { font-family:var(--font-mono); font-size:10px; color:var(--dim-2); }
@@ -321,17 +332,25 @@ input, textarea { font-family: inherit; color: inherit; }
 #saran-overlay.show { display:flex; opacity:1; }
 #saran-dialog { background:var(--surface-raised); border-radius:var(--radius); padding:28px; max-width:440px; width:92%; box-shadow:0 24px 80px rgba(10,10,10,.25); transform:scale(.95); transition:transform .25s cubic-bezier(.2,.7,.2,1); }
 #saran-overlay.show #saran-dialog { transform:scale(1); }
-#saran-dialog h3 { font-family:var(--font-display); font-size:26px; color:var(--ink); margin-bottom:6px; }
 #saran-dialog p { font-size:13px; color:var(--dim); margin-bottom:20px; line-height:1.55; }
 .saran-field { margin-bottom:12px; }
 .saran-label { font-family:var(--font-mono); font-size:9px; letter-spacing:.16em; text-transform:uppercase; color:var(--dim); margin-bottom:5px; display:block; }
-.saran-input { width:100%; border:1px solid var(--line-2); border-radius:var(--radius-sm); padding:9px 12px; font-size:13px; color:var(--ink); background:var(--bg); font-family:var(--font-body); outline:none; transition:border-color .15s; }
-.saran-input:focus { border-color:var(--ink); }
-.saran-textarea { width:100%; border:1px solid var(--line-2); border-radius:var(--radius-sm); padding:9px 12px; font-size:13px; color:var(--ink); background:var(--bg); font-family:var(--font-body); outline:none; resize:none; height:100px; transition:border-color .15s; }
-.saran-textarea:focus { border-color:var(--ink); }
-.saran-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
-.saran-cancel { background:transparent; border:1px solid var(--line-2); border-radius:100px; color:var(--ink-2); padding:9px 18px; font-size:13px; font-weight:500; cursor:pointer; }
-.saran-submit { background:var(--ink); border:1px solid var(--ink); border-radius:100px; color:var(--bg); padding:9px 18px; font-size:13px; font-weight:500; cursor:pointer; }
+.saran-dialog-eyebrow { font-family:var(--font-mono); font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:var(--dim); margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+.saran-dialog-eyebrow::before { content:''; width:18px; height:1px; background:var(--line-3); }
+#saran-dialog h3 { font-family:var(--font-display); font-size:36px; line-height:1.05; color:var(--ink); margin-bottom:6px; letter-spacing:-.01em; }
+#saran-dialog p { font-size:13px; color:var(--dim); margin-bottom:28px; line-height:1.55; }
+.saran-input { width:100%; background:transparent; border:none; border-bottom:1px solid var(--line-2); padding:8px 0; font-size:15px; color:var(--ink); font-family:var(--font-body); outline:none; transition:border-color .2s; -webkit-appearance:none; }
+.saran-input::placeholder { color:var(--dimmer); }
+.saran-input:focus { border-color:var(--accent); }
+.saran-textarea { width:100%; background:transparent; border:none; border-bottom:1px solid var(--line-2); padding:8px 0; font-size:15px; color:var(--ink); font-family:var(--font-body); outline:none; resize:none; height:90px; transition:border-color .2s; display:block; }
+.saran-textarea::placeholder { color:var(--dimmer); }
+.saran-textarea:focus { border-color:var(--accent); }
+.saran-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:26px; }
+.saran-cancel { background:transparent; border:1px solid var(--line-2); border-radius:100px; color:var(--ink-2); padding:10px 20px; font-size:13px; font-weight:500; cursor:pointer; transition:all .15s; font-family:var(--font-body); }
+.saran-cancel:hover { border-color:var(--ink); }
+.saran-submit { background:var(--ink); border:1px solid var(--ink); border-radius:100px; color:var(--bg); padding:10px 20px; font-size:13px; font-weight:500; cursor:pointer; transition:background .15s; font-family:var(--font-body); display:flex; align-items:center; gap:8px; }
+.saran-submit:hover { background:#1C1C1C; }
+.saran-submit .arrow { display:inline-flex; width:18px; height:18px; background:var(--accent); color:var(--ink); border-radius:50%; align-items:center; justify-content:center; }
 .saran-row { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; margin-bottom:8px; }
 .saran-row-head { display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap; }
 .saran-badge { font-size:10px; padding:2px 8px; border-radius:100px; font-family:var(--font-mono); }
@@ -645,23 +664,27 @@ input, textarea { font-family: inherit; color: inherit; }
 
     <!-- Admin panel -->
     <section id="admin-panel">
-      <div class="admin-head">
-        <div>
-          <h1 class="admin-title">Panel <em>Admin</em></h1>
-        </div>
-        <div style="display:flex;gap:8px;">
-          <button class="topbar-btn" onclick="showPanel('chat')">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-            Kembali ke Chat
-          </button>
+      <div style="max-width:1100px;width:100%;margin:0 auto;">
+        <div class="admin-head">
+          <div>
+            <h1 class="admin-title">Panel <em>Admin</em></h1>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="topbar-btn" onclick="showPanel('chat')">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+              Kembali ke Chat
+            </button>
+          </div>
         </div>
       </div>
-      <div class="admin-tabs" style="margin-bottom:0;">
-        <div class="admin-tab active" id="tab-database" onclick="switchAdminTab('database')">Database</div>
-        <div class="admin-tab" id="tab-feedback" onclick="switchAdminTab('feedback')">Feedback</div>
-        <div class="admin-tab" id="tab-saran" onclick="switchAdminTab('saran')">Saran & Masukan</div>
+      <div style="max-width:1100px;width:100%;margin:0 auto;">
+        <div class="admin-tabs" style="margin-bottom:0;">
+          <div class="admin-tab active" id="tab-database" onclick="switchAdminTab('database')"><span class="tab-dot"></span>Database</div>
+          <div class="admin-tab" id="tab-feedback" onclick="switchAdminTab('feedback')"><span class="tab-dot"></span>Feedback</div>
+          <div class="admin-tab" id="tab-saran" onclick="switchAdminTab('saran')"><span class="tab-dot"></span>Saran &amp; Masukan</div>
+        </div>
       </div>
-      <div class="admin-tab-content"><div class="admin-grid">
+      <div class="admin-tab-content" style="max-width:1100px;width:100%;margin:0 auto;"><div class="admin-grid">
         <div class="admin-card">
           <div class="admin-card-head">
             <span class="admin-card-title">Upload POJK</span>
@@ -770,20 +793,30 @@ input, textarea { font-family: inherit; color: inherit; }
 <!-- Feedback dialog -->
 <div id="fb-overlay">
   <div id="fb-dialog">
+    <div class="fb-dialog-eyebrow">Feedback · Jawaban CORE</div>
     <h3>Apa yang kurang tepat?</h3>
     <p>Masukan Anda akan ditinjau oleh admin sebelum tindakan diambil.</p>
-    <select class="fb-select" id="fb-reason">
-      <option value="">Pilih alasan...</option>
-      <option value="Jawaban tidak relevan">Jawaban tidak relevan</option>
-      <option value="POJK yang dikutip salah">POJK yang dikutip salah</option>
-      <option value="Jawaban tidak lengkap">Jawaban tidak lengkap</option>
-      <option value="Informasi tidak akurat">Informasi tidak akurat</option>
-      <option value="Lainnya">Lainnya</option>
-    </select>
-    <textarea class="fb-textarea" id="fb-detail" placeholder="Catatan tambahan (opsional)..."></textarea>
+    <div class="fb-field">
+      <label>Alasan</label>
+      <select id="fb-reason">
+        <option value="">Pilih alasan...</option>
+        <option value="Jawaban tidak relevan">Jawaban tidak relevan</option>
+        <option value="POJK yang dikutip salah">POJK yang dikutip salah</option>
+        <option value="Jawaban tidak lengkap">Jawaban tidak lengkap</option>
+        <option value="Informasi tidak akurat">Informasi tidak akurat</option>
+        <option value="Lainnya">Lainnya</option>
+      </select>
+    </div>
+    <div class="fb-field">
+      <label>Catatan <span style="color:var(--dimmer);font-size:9px;">opsional</span></label>
+      <textarea id="fb-detail" placeholder="Jelaskan lebih lanjut..."></textarea>
+    </div>
     <div class="fb-actions">
       <button class="fb-cancel" onclick="closeFeedbackDialog()">Batal</button>
-      <button class="fb-submit" onclick="submitFeedback()">Kirim</button>
+      <button class="fb-submit" onclick="submitFeedback()">
+        Kirim
+        <span class="arrow"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>
+      </button>
     </div>
   </div>
 </div>
@@ -808,6 +841,7 @@ input, textarea { font-family: inherit; color: inherit; }
 <!-- Form saran -->
 <div id="saran-overlay">
   <div id="saran-dialog">
+    <div class="saran-dialog-eyebrow">CORE · Masukan Pengguna</div>
     <h3>Saran &amp; Masukan</h3>
     <p>Sampaikan ide, saran fitur, atau masukan tentang CORE. Semua masukan akan ditinjau oleh admin.</p>
     <div class="saran-field">
@@ -1725,11 +1759,12 @@ async function loadFeedbackPanel() {
     const data = await res.json()
     if (!Array.isArray(data)) throw new Error('Gagal memuat data')
 
-    // Stats
-    const pending = data.filter(d => d.status === 'pending').length
-    const resolved = data.filter(d => d.status === 'resolved').length
-    const ignored = data.filter(d => d.status === 'ignored').length
-    if (statsEl.total) statsEl.total.textContent = data.length
+    // Stats - hanya hitung feedback negatif
+    const negData = data.filter(d => d.rating === 'negative')
+    const pending = negData.filter(d => d.status === 'pending').length
+    const resolved = negData.filter(d => d.status === 'resolved').length
+    const ignored = negData.filter(d => d.status === 'ignored').length
+    if (statsEl.total) statsEl.total.textContent = negData.length
     if (statsEl.pending) statsEl.pending.textContent = pending
     if (statsEl.resolved) statsEl.resolved.textContent = resolved
     if (statsEl.ignored) statsEl.ignored.textContent = ignored
@@ -1920,6 +1955,8 @@ function renderMessage(msg) {
     const posBtn = document.createElement('button')
     posBtn.className = 'fb-btn pos'
     posBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 9V5a3 3 0 00-3-3l-4 10v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg>'
+    const sep = document.createElement('div')
+    sep.className = 'fb-sep'
     const negBtn = document.createElement('button')
     negBtn.className = 'fb-btn neg'
     negBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg>'
@@ -1934,6 +1971,7 @@ function renderMessage(msg) {
       openFeedbackDialog(msg, negBtn)
     }
     fbRow.appendChild(posBtn)
+    fbRow.appendChild(sep)
     fbRow.appendChild(negBtn)
     wrap.appendChild(fbRow)
   }
