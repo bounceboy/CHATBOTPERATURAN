@@ -1286,7 +1286,7 @@ async function uploadPojkBatch(files) {
       const pojk_id = (await lr.json())[0].id
 
       statusEl.textContent='Embedding '+chunks.length+' chunks...'
-      const BATCH=50, emb=[]
+      const BATCH=20, emb=[]
       for (let i=0;i<chunks.length;i+=BATCH) {
         const b=chunks.slice(i,i+BATCH), vecs=await embed(b.map(c=>c.content))
         b.forEach((c,j)=>emb.push({...c,embedding:vecs[j]}))
