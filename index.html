@@ -1758,9 +1758,19 @@ async function loadRiwayat() {
       const item = document.createElement('div')
       item.className = 'riwayat-item' + (s.id === currentSessionId ? ' active' : '')
       item.setAttribute('data-id', s.id)
-      item.innerHTML = '<span class="riwayat-title">' + escHtml(s.title || 'Sesi tanpa judul') + '</span>'
-        + '<span class="riwayat-date">' + d.toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit'}) + '</span>'
-        + '<span class="riwayat-del" onclick="deleteSession(event, '' + s.id + '')">✕</span>'
+            const delBtn = document.createElement('span')
+      delBtn.className = 'riwayat-del'
+      delBtn.textContent = '✕'
+      delBtn.addEventListener('click', function(e) { deleteSession(e, s.id) })
+      const titleEl = document.createElement('span')
+      titleEl.className = 'riwayat-title'
+      titleEl.textContent = s.title || 'Sesi tanpa judul'
+      const dateEl = document.createElement('span')
+      dateEl.className = 'riwayat-date'
+      dateEl.textContent = d.toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit'})
+      item.appendChild(titleEl)
+      item.appendChild(dateEl)
+      item.appendChild(delBtn)
       item.addEventListener('click', function() { loadSession(s.id, s.title) })
       container.appendChild(item)
     })
