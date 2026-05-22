@@ -1812,6 +1812,24 @@ async function loadSession(sessionId, title) {
   } catch(e) { showToast('Gagal memuat sesi.', 'error') }
 }
 
+function renameCurrentSession() {
+  if (!currentSessionId) return
+  const titleEl = document.getElementById('topbar-title-text')
+  const currentTitle = titleEl.textContent || 'Sesi tanpa judul'
+  const newTitle = prompt('Ubah judul sesi:', currentTitle)
+  if (!newTitle || newTitle.trim() === currentTitle) return
+  fetch('/api/sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.user.token },
+    body: JSON.stringify({ action: 'rename', session_id: currentSessionId, title: newTitle.trim() })
+  }).then(function() {
+    titleEl.textContent = newTitle.trim()
+    const activeItem = document.querySelector('.riwayat-item.active .riwayat-title')
+    if (activeItem) activeItem.textContent = newTitle.trim()
+    showToast('Judul sesi diperbarui.', 'success')
+  }).catch(function() { showToast('Gagal mengubah judul.', 'error') })
+}
+
 function renameSession(sessionId, currentTitle, titleEl) {
   const newTitle = prompt('Ubah judul sesi:', currentTitle || 'Sesi tanpa judul')
   if (!newTitle || newTitle.trim() === currentTitle) return
