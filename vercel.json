@@ -2,6 +2,9 @@
   "rewrites": [
     { "source": "/api/chat", "destination": "/api/chat.js" },
     { "source": "/api/auth", "destination": "/api/auth.js" },
+    { "source": "/api/register", "destination": "/api/register.js" },
+    { "source": "/api/admin-users", "destination": "/api/admin-users.js" },
+    { "source": "/api/sessions", "destination": "/api/sessions.js" },
     { "source": "/api/ingest", "destination": "/api/ingest.js" },
     { "source": "/api/pojk-list", "destination": "/api/pojk-list.js" },
     { "source": "/api/admin-pojk", "destination": "/api/admin-pojk.js" },
