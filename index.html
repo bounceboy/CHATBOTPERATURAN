@@ -279,9 +279,11 @@ input, textarea { font-family: inherit; color: inherit; }
 .riwayat-item.active { background:var(--surface); }
 .riwayat-title { font-size:13px; color:var(--ink-2); flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .riwayat-date { font-size:10px; color:var(--dim-2); font-family:var(--font-mono); flex-shrink:0; }
-.riwayat-del { opacity:0; font-size:11px; color:var(--dim); cursor:pointer; padding:2px 4px; border-radius:2px; flex-shrink:0; transition:opacity .15s; display:flex; align-items:center; }
-.riwayat-item:hover .riwayat-del { opacity:1; }
-.riwayat-del:hover { color:var(--err); }
+.riwayat-edit { opacity:0; font-size:11px; color:var(--dim); cursor:pointer; padding:2px 4px; border-radius:2px; flex-shrink:0; transition:opacity .15s; display:flex; align-items:center; }
+.riwayat-edit:hover { color:var(--ink); }
+.riwayat-item:hover .riwayat-edit { opacity:1; }
+.riwayat-del { font-size:11px; color:var(--err); cursor:pointer; padding:2px 4px; border-radius:2px; flex-shrink:0; display:flex; align-items:center; opacity:0.5; transition:opacity .15s; }
+.riwayat-del:hover { opacity:1; }
 .riwayat-empty { font-size:12px; color:var(--dim-2); font-family:var(--font-mono); text-align:center; padding:24px 16px; line-height:1.6; }
 .riwayat-group-label { font-size:10px; font-family:var(--font-mono); letter-spacing:.12em; text-transform:uppercase; color:var(--dim-2); padding:8px 16px 4px; }
 .fb-sep { width:1px; height:14px; background:var(--line-2); }
@@ -1759,21 +1761,21 @@ async function loadRiwayat() {
             const titleEl = document.createElement('span')
       titleEl.className = 'riwayat-title'
       titleEl.textContent = s.title || 'Sesi tanpa judul'
-      const dateEl = document.createElement('span')
-      dateEl.className = 'riwayat-date'
-      dateEl.textContent = d.toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit'})
       const editBtn = document.createElement('span')
-      editBtn.className = 'riwayat-del'
+      editBtn.className = 'riwayat-edit'
       editBtn.title = 'Ubah judul'
       editBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'
       editBtn.addEventListener('click', function(e) { e.stopPropagation(); renameSession(s.id, s.title, titleEl) })
+      const dateEl = document.createElement('span')
+      dateEl.className = 'riwayat-date'
+      dateEl.textContent = d.toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit'})
       const delBtn = document.createElement('span')
       delBtn.className = 'riwayat-del'
       delBtn.textContent = '✕'
       delBtn.addEventListener('click', function(e) { deleteSession(e, s.id) })
       item.appendChild(titleEl)
-      item.appendChild(dateEl)
       item.appendChild(editBtn)
+      item.appendChild(dateEl)
       item.appendChild(delBtn)
       item.addEventListener('click', function() { loadSession(s.id, s.title) })
       container.appendChild(item)
@@ -1800,7 +1802,7 @@ async function loadSession(sessionId, title) {
     inner.innerHTML = ''
     if (welcome) inner.appendChild(welcome)
     state.messages.forEach(function(m) { renderMessage(m) })
-    switchSidebarTab('db')
+    showPanel('chat')
     // highlight item aktif
     document.querySelectorAll('.riwayat-item').forEach(function(el) {
       el.classList.toggle('active', el.getAttribute('data-id') === sessionId)
