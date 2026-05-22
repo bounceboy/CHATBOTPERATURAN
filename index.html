@@ -1096,7 +1096,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }, INACTIVE_MS)
   }
-  ['mousedown','mousemove','keydown','scroll','touchstart','click'].forEach(function(ev) {
+  ;['mousedown','mousemove','keydown','scroll','touchstart','click'].forEach(function(ev) {
     document.addEventListener(ev, resetInactiveTimer, { passive: true })
   })
   if (state.user) { resetInactiveTimer(); }
@@ -2646,3 +2646,4 @@ function confirmOk() { closeConfirm() }
 </script>
 </body>
 </html>
+
