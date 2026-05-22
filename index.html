@@ -674,7 +674,7 @@ input, textarea { font-family: inherit; color: inherit; }
       <div class="topbar-title">
         <span class="crumb-mono">CORE</span>
         <span class="crumb-sep">/</span>
-        <span class="crumb-display" id="topbar-title-text">Regulasi Perasuransian</span>
+        <span class="crumb-display" id="topbar-title-text" onclick="renameCurrentSession()" title="Klik untuk ubah judul" style="cursor:pointer;min-width:40px;"></span>
       </div>
       <div id="topbar-actions">
         <span class="topbar-pill" id="topbar-pill">
@@ -1098,7 +1098,7 @@ function showPanel(name) {
   } else {
     chat.style.display = 'flex'
     admin.classList.remove('active')
-    titleEl.textContent = 'Regulasi Perasuransian'
+    titleEl.textContent = currentSessionId ? titleEl.textContent : ''
     adminBtn.classList.remove('active')
   }
 }
