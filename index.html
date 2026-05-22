@@ -198,7 +198,8 @@ input, textarea { font-family: inherit; color: inherit; }
 #topbar { height:56px; padding:0 24px; display:flex; align-items:center; gap:14px; flex-shrink:0; border-bottom:1px solid var(--line); background:var(--bg); }
 .topbar-title { display:flex; align-items:center; gap:12px; }
 .topbar-title .crumb-mono { font-family:var(--font-mono); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--dim); }
-.topbar-title .crumb-display { font-family:var(--font-display); font-size:22px; color:var(--ink); letter-spacing:-.01em; }
+.topbar-title .crumb-display { font-family:var(--font-display); font-size:22px; color:var(--ink); letter-spacing:-.01em; border-radius:4px; padding:2px 6px; transition:background .15s; }
+.topbar-title .crumb-display:hover { background:rgba(10,10,10,.06); }
 .topbar-title .crumb-sep { color:var(--dimmer); }
 #topbar-actions { margin-left:auto; display:flex; align-items:center; gap:8px; }
 .topbar-pill { display:inline-flex; align-items:center; gap:8px; font-family:var(--font-mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); padding:6px 12px; border:1px solid var(--line-2); border-radius:100px; background:var(--surface); }
@@ -1820,6 +1821,9 @@ function renameSession(sessionId, currentTitle, titleEl) {
     body: JSON.stringify({ action: 'rename', session_id: sessionId, title: newTitle.trim() })
   }).then(function() {
     titleEl.textContent = newTitle.trim()
+    if (sessionId === currentSessionId) {
+      document.getElementById('topbar-title-text').textContent = newTitle.trim()
+    }
     showToast('Judul sesi diperbarui.', 'success')
   }).catch(function() { showToast('Gagal mengubah judul.', 'error') })
 }
