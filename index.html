@@ -1059,21 +1059,23 @@ function animateSlot(el, finalVal) {
 
 document.addEventListener('DOMContentLoaded', () => {
   // Restore session dari localStorage
-  const saved = localStorage.getItem('core_session')
-  if (saved) {
+  setTimeout(function() {
     try {
-      const u = JSON.parse(saved)
-      if (u && u.token) {
-        const payload = JSON.parse(atob(u.token.split('.')[0]))
-        if (payload.exp > Date.now()) {
-          state.user = u
-          enterApp()
-        } else {
-          localStorage.removeItem('core_session')
+      const saved = localStorage.getItem('core_session')
+      if (saved) {
+        const u = JSON.parse(saved)
+        if (u && u.token) {
+          const payload = JSON.parse(atob(u.token.split('.')[0]))
+          if (payload.exp > Date.now()) {
+            state.user = u
+            enterApp()
+          } else {
+            localStorage.removeItem('core_session')
+          }
         }
       }
     } catch(e) { localStorage.removeItem('core_session') }
-  }
+  }, 100)
 
   // Inactivity timeout — 90 menit
   const INACTIVE_MS = 90 * 60 * 1000
