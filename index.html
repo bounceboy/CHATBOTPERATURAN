@@ -1722,8 +1722,16 @@ async function submitFeedback() {
   const detail = document.getElementById('fb-detail').value.trim()
   if (!reason) { showToast('Pilih alasan terlebih dahulu.', 'error'); return }
   if (pendingNegBtn) pendingNegBtn.classList.add('active')
+  // Pastikan userQuery terisi dari pesan user sebelumnya
+  const msg = pendingFeedbackMsg || {}
+  if (!msg.userQuery) {
+    const idx = state.messages.indexOf(msg)
+    for (let i = (idx >= 0 ? idx : state.messages.length) - 1; i >= 0; i--) {
+      if (state.messages[i].role === 'user') { msg.userQuery = state.messages[i].content; break }
+    }
+  }
   closeFeedbackDialog()
-  await saveFeedback('negative', pendingFeedbackMsg || {}, reason, detail)
+  await saveFeedback('negative', msg, reason, detail)
   showToast('Terima kasih. Feedback dicatat untuk ditinjau.', 'success')
 }
 
