@@ -1058,24 +1058,22 @@ function animateSlot(el, finalVal) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Restore session dari localStorage
-  setTimeout(function() {
-    try {
-      const saved = localStorage.getItem('core_session')
-      if (saved) {
-        const u = JSON.parse(saved)
-        if (u && u.token) {
-          const payload = JSON.parse(atob(u.token.split('.')[0]))
-          if (payload.exp > Date.now()) {
-            state.user = u
-            enterApp()
-          } else {
-            localStorage.removeItem('core_session')
-          }
+  // Restore session dari localStorage — jalankan setelah splash selesai (3200ms)
+  var _savedSession = null
+  try {
+    var _raw = localStorage.getItem('core_session')
+    if (_raw) {
+      var _u = JSON.parse(_raw)
+      if (_u && _u.token) {
+        var _payload = JSON.parse(atob(_u.token.split('.')[0]))
+        if (_payload.exp > Date.now()) {
+          _savedSession = _u
+        } else {
+          localStorage.removeItem('core_session')
         }
       }
-    } catch(e) { localStorage.removeItem('core_session') }
-  }, 100)
+    }
+  } catch(e) { localStorage.removeItem('core_session') }
 
   // Inactivity timeout — 90 menit
   const INACTIVE_MS = 90 * 60 * 1000
@@ -1111,7 +1109,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('splash').classList.add('out')
     setTimeout(() => {
       document.getElementById('splash').style.display = 'none'
-      showView('login')
+      if (_savedSession) {
+        state.user = _savedSession
+        enterApp()
+      } else {
+        showView('login')
+      }
       fetchAndAnimateHeroCount()
     }, 800)
   }, 2200)
