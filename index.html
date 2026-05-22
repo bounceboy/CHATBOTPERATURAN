@@ -1793,6 +1793,7 @@ async function loadSession(sessionId, title) {
     const data = await res.json()
     const messages = data.messages || []
     currentSessionId = sessionId
+    document.getElementById('topbar-title-text').textContent = title || ''
     state.messages = messages.map(function(m) {
       return { role: m.role, content: m.content, sources: m.sources || [] }
     })
