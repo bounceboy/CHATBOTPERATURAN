@@ -2363,7 +2363,8 @@ function applyFeedbackFilter(data) {
 
 function showFeedbackDetail(btn) {
   const fb = JSON.parse(btn.getAttribute('data-fb') || '{}')
-  const sources = Array.isArray(fb.sources) ? fb.sources.map(function(s) { return s.source || s.pasal || '' }).filter(Boolean).join(', ') : '-'
+  const sourcesRaw = Array.isArray(fb.sources) ? fb.sources.map(function(s) { return s.source || '' }).filter(Boolean) : []
+  const sources = sourcesRaw.length ? [...new Set(sourcesRaw)].join(', ') : '-'
   let html = ''
   html += '<div class="fb-detail-section">'
   html += '<div class="fb-detail-label">Query</div>'
