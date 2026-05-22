@@ -1099,13 +1099,10 @@ document.addEventListener('DOMContentLoaded', () => {
   ['mousedown','mousemove','keydown','scroll','touchstart','click'].forEach(function(ev) {
     document.addEventListener(ev, resetInactiveTimer, { passive: true })
   })
-  if (state.user) resetInactiveTimer();
+  if (state.user) { resetInactiveTimer(); }
 
-  ;['login-username','login-password'].forEach(id => {
-    document.getElementById(id).addEventListener('keydown', e => {
-      if (e.key === 'Enter') doLogin()
-    })
-  })
+  document.getElementById('login-username').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin() })
+  document.getElementById('login-password').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin() })
 
   setTimeout(() => {
     document.getElementById('splash').classList.add('out')
