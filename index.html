@@ -1099,9 +1099,9 @@ document.addEventListener('DOMContentLoaded', () => {
   ['mousedown','mousemove','keydown','scroll','touchstart','click'].forEach(function(ev) {
     document.addEventListener(ev, resetInactiveTimer, { passive: true })
   })
-  if (state.user) resetInactiveTimer()
+  if (state.user) resetInactiveTimer();
 
-  ['login-username','login-password'].forEach(id => {
+  ;['login-username','login-password'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => {
       if (e.key === 'Enter') doLogin()
     })
