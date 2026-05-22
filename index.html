@@ -1101,7 +1101,7 @@ async function doLogin() {
     })
     const data = await res.json()
     if (!res.ok || !data.token) { showLoginError(data.error || 'Username atau password salah.'); return }
-    state.user = { username: data.username || username, role: data.role || 'admin', token: data.token }
+    state.user = { username: data.username || username, nama_lengkap: data.nama_lengkap || null, role: data.role || 'admin', token: data.token }
     enterApp()
   } catch(e) {
     showLoginError('Gagal terhubung ke server. Coba lagi.')
@@ -1111,16 +1111,12 @@ async function doLogin() {
   }
 }
 
-function loginAsGuest() {
-  state.user = { username: 'Guest', role: 'guest', token: null }
-  enterApp()
-}
-
 function enterApp() {
   const u = state.user
-  document.getElementById('user-avatar').textContent = u.username.charAt(0).toUpperCase()
-  document.getElementById('user-display-name').textContent = u.username
-  document.getElementById('user-display-role').textContent = u.role === 'admin' ? 'Administrator' : 'Guest'
+  const displayName = u.nama_lengkap || u.username
+  document.getElementById('user-avatar').textContent = displayName.charAt(0).toUpperCase()
+  document.getElementById('user-display-name').textContent = displayName
+  document.getElementById('user-display-role').textContent = u.role === 'admin' ? 'Administrator' : 'Pengguna'
   if (u.role === 'admin') document.getElementById('admin-toggle-btn').style.display = 'flex'
   showView("app"); document.getElementById("saran-fab").style.display="flex"; document.getElementById("saran-fab-tooltip").style.display="block"
   loadPojkList()
