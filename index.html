@@ -1655,7 +1655,7 @@ async function sendMessage(text) {
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Terjadi kesalahan')
-    const aiMsg = { role: 'assistant', content: data.content, sources: data.sources || [], model: data.model, tier: data.tier, userQuery: state._lastUserQuery || '' }
+    const aiMsg = { role: 'assistant', content: data.content, sources: data.sources || [], model: data.model, tier: data.tier, userQuery: displayQuery || '' }
     state.messages.push(aiMsg)
     thinkingEl.remove()
     renderMessage(aiMsg)
