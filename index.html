@@ -1058,6 +1058,48 @@ function animateSlot(el, finalVal) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Restore session dari localStorage
+  const saved = localStorage.getItem('core_session')
+  if (saved) {
+    try {
+      const u = JSON.parse(saved)
+      if (u && u.token) {
+        const payload = JSON.parse(atob(u.token.split('.')[0]))
+        if (payload.exp > Date.now()) {
+          state.user = u
+          enterApp()
+        } else {
+          localStorage.removeItem('core_session')
+        }
+      }
+    } catch(e) { localStorage.removeItem('core_session') }
+  }
+
+  // Inactivity timeout — 90 menit
+  const INACTIVE_MS = 90 * 60 * 1000
+  let inactiveTimer = null
+  function resetInactiveTimer() {
+    if (!state.user) return
+    clearTimeout(inactiveTimer)
+    inactiveTimer = setTimeout(function() {
+      if (state.user) {
+        localStorage.removeItem('core_session')
+        state.user = null; state.messages = []; state.panel = 'chat'
+        document.getElementById('admin-toggle-btn').style.display = 'none'
+        document.getElementById('export-btn').style.display = 'none'
+        document.getElementById('login-username').value = ''
+        document.getElementById('login-password').value = ''
+        document.getElementById('login-error').style.display = 'none'
+        document.getElementById('saran-fab').style.display = 'none'
+        document.getElementById('saran-fab-tooltip').style.display = 'none'
+        showPanel('chat'); showView('login'); resetChat()
+      }
+    }, INACTIVE_MS)
+  }
+  ['mousedown','mousemove','keydown','scroll','touchstart','click'].forEach(function(ev) {
+    document.addEventListener(ev, resetInactiveTimer, { passive: true })
+  })
+  resetInactiveTimer()
 
   ['login-username','login-password'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => {
@@ -1125,6 +1167,7 @@ async function doLogin() {
     const data = await res.json()
     if (!res.ok || !data.token) { showLoginError(data.error || 'Username atau password salah.'); return }
     state.user = { id: data.id || null, username: data.username || username, nama_lengkap: data.nama_lengkap || null, role: data.role || 'admin', token: data.token }
+    localStorage.setItem('core_session', JSON.stringify(state.user))
     enterApp()
   } catch(e) {
     showLoginError('Gagal terhubung ke server. Coba lagi.')
@@ -1154,6 +1197,7 @@ function showLoginError(msg) {
 function doLogout() {
   showConfirm('Keluar dari CORE', 'Sesi Anda akan diakhiri. Lanjutkan?', () => {
     state.user = null; state.messages = []; state.panel = 'chat'
+    localStorage.removeItem('core_session')
     document.getElementById('admin-toggle-btn').style.display = 'none'
     document.getElementById('export-btn').style.display = 'none'
     document.getElementById('login-username').value = ''
