@@ -269,6 +269,21 @@ input, textarea { font-family: inherit; color: inherit; }
 .thinking-text { font-family:var(--font-mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; }
 .model-badge { display:inline-flex; align-items:center; font-family:var(--font-mono); font-size:10px; color:var(--dim-2); padding-left:30px; letter-spacing:.08em; }
 .feedback-row { display:flex; align-items:center; gap:6px; padding-left:30px; margin-top:8px; }
+.sidebar-tabs { display:flex; border-bottom:1px solid var(--line); margin-bottom:0; padding:0 12px; }
+.sidebar-tab { flex:1; padding:9px 0; font-size:10px; font-family:var(--font-mono); letter-spacing:.14em; text-transform:uppercase; color:var(--dim-2); cursor:pointer; text-align:center; border-bottom:2px solid transparent; margin-bottom:-1px; transition:all .15s; }
+.sidebar-tab.active { color:var(--ink); border-bottom-color:var(--accent); }
+#riwayat-panel { display:none; flex-direction:column; flex:1; min-height:0; overflow-y:auto; padding:8px 0; }
+#riwayat-panel.active { display:flex; }
+.riwayat-item { padding:10px 16px; cursor:pointer; border-radius:var(--radius-sm); margin:1px 8px; transition:background .15s; display:flex; align-items:center; gap:8px; }
+.riwayat-item:hover { background:var(--surface); }
+.riwayat-item.active { background:var(--surface); }
+.riwayat-title { font-size:13px; color:var(--ink-2); flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.riwayat-date { font-size:10px; color:var(--dim-2); font-family:var(--font-mono); flex-shrink:0; }
+.riwayat-del { opacity:0; font-size:11px; color:var(--dim); cursor:pointer; padding:2px 4px; border-radius:2px; flex-shrink:0; transition:opacity .15s; }
+.riwayat-item:hover .riwayat-del { opacity:1; }
+.riwayat-del:hover { color:var(--err); }
+.riwayat-empty { font-size:12px; color:var(--dim-2); font-family:var(--font-mono); text-align:center; padding:24px 16px; line-height:1.6; }
+.riwayat-group-label { font-size:10px; font-family:var(--font-mono); letter-spacing:.12em; text-transform:uppercase; color:var(--dim-2); padding:8px 16px 4px; }
 .fb-sep { width:1px; height:14px; background:var(--line-2); }
 .fb-label { font-family:var(--font-mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim-2); margin-right:2px; }
 .fb-btn { background:transparent; border:1px solid var(--line-2); border-radius:100px; padding:4px 12px; font-size:11px; font-family:var(--font-mono); cursor:pointer; color:var(--dim); transition:all .15s; display:flex; align-items:center; gap:6px; letter-spacing:.08em; }
@@ -627,7 +642,14 @@ input, textarea { font-family: inherit; color: inherit; }
         <div class="label">Database</div>
         <span class="count-badge" id="pojk-count-badge">00</span>
       </div>
+      <div class="sidebar-tabs">
+        <div class="sidebar-tab active" id="sidebar-tab-db" onclick="switchSidebarTab('db')">Database</div>
+        <div class="sidebar-tab" id="sidebar-tab-riwayat" onclick="switchSidebarTab('riwayat')">Riwayat</div>
+      </div>
       <div id="pojk-list"></div>
+      <div id="riwayat-panel">
+        <div id="riwayat-list"></div>
+      </div>
       <div class="sidebar-user">
         <div class="user-avatar" id="user-avatar">A</div>
         <div class="user-info">
@@ -1101,7 +1123,7 @@ async function doLogin() {
     })
     const data = await res.json()
     if (!res.ok || !data.token) { showLoginError(data.error || 'Username atau password salah.'); return }
-    state.user = { username: data.username || username, nama_lengkap: data.nama_lengkap || null, role: data.role || 'admin', token: data.token }
+    state.user = { id: data.id || null, username: data.username || username, nama_lengkap: data.nama_lengkap || null, role: data.role || 'admin', token: data.token }
     enterApp()
   } catch(e) {
     showLoginError('Gagal terhubung ke server. Coba lagi.')
@@ -1427,6 +1449,7 @@ async function deletePojk(id, nama) {
 // ═══ CHAT ═══
 function newChat() {
   state.messages = []
+  currentSessionId = null
   resetChat()
   showPanel('chat')
   checkExportBtn()
@@ -1553,6 +1576,12 @@ async function sendMessage(text) {
   renderMessage(userMsg)
   state._lastUserQuery = displayQuery
 
+  // Auto-save: buat sesi baru kalau belum ada
+  if (!currentSessionId && state.user?.token) {
+    currentSessionId = await createSession(displayQuery)
+  }
+  if (currentSessionId) saveMessage('user', displayQuery, null)
+
   const thinkingEl = showThinking()
 
   try {
@@ -1582,6 +1611,7 @@ async function sendMessage(text) {
     state.messages.push(aiMsg)
     thinkingEl.remove()
     renderMessage(aiMsg)
+    if (currentSessionId) saveMessage('assistant', data.content, data.sources || [])
   } catch(err) {
     thinkingEl.remove()
     const errMsg = { role: 'assistant', content: `Maaf, terjadi kesalahan: ${err.message}. Silakan coba lagi.`, sources: [] }
@@ -1647,6 +1677,134 @@ async function submitFeedback() {
   closeFeedbackDialog()
   await saveFeedback('negative', pendingFeedbackMsg || {}, reason, detail)
   showToast('Terima kasih. Feedback dicatat untuk ditinjau.', 'success')
+}
+
+// ═══ HISTORY CHAT ═══
+let currentSessionId = null
+
+function switchSidebarTab(tab) {
+  document.getElementById('sidebar-tab-db').classList.toggle('active', tab === 'db')
+  document.getElementById('sidebar-tab-riwayat').classList.toggle('active', tab === 'riwayat')
+  const pojkList = document.getElementById('pojk-list')
+  const riwayatPanel = document.getElementById('riwayat-panel')
+  if (tab === 'db') {
+    pojkList.style.display = 'block'
+    riwayatPanel.classList.remove('active')
+  } else {
+    pojkList.style.display = 'none'
+    riwayatPanel.classList.add('active')
+    loadRiwayat()
+  }
+}
+
+async function createSession(firstMessage) {
+  if (!state.user?.token || !state.user?.id) return null
+  try {
+    const title = firstMessage.slice(0, 60) + (firstMessage.length > 60 ? '…' : '')
+    const res = await fetch('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.user.token },
+      body: JSON.stringify({ action: 'create', title })
+    })
+    const data = await res.json()
+    return data.session?.id || null
+  } catch(e) { console.error('[session] gagal buat sesi:', e.message); return null }
+}
+
+async function saveMessage(role, content, sources) {
+  if (!currentSessionId || !state.user?.token) return
+  try {
+    await fetch('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.user.token },
+      body: JSON.stringify({ action: 'message', session_id: currentSessionId, role, content, sources: sources || null })
+    })
+  } catch(e) { console.error('[session] gagal simpan pesan:', e.message) }
+}
+
+async function loadRiwayat() {
+  const container = document.getElementById('riwayat-list')
+  if (!state.user?.token) {
+    container.innerHTML = '<div class="riwayat-empty">Login untuk melihat riwayat chat.</div>'
+    return
+  }
+  container.innerHTML = '<div class="riwayat-empty">Memuat...</div>'
+  try {
+    const res = await fetch('/api/sessions', {
+      headers: { 'Authorization': 'Bearer ' + state.user.token }
+    })
+    const data = await res.json()
+    const sessions = data.sessions || []
+    if (sessions.length === 0) {
+      container.innerHTML = '<div class="riwayat-empty">Belum ada riwayat chat.</div>'
+      return
+    }
+    container.innerHTML = ''
+    // Group by date
+    const today = new Date().toDateString()
+    const yesterday = new Date(Date.now() - 86400000).toDateString()
+    let lastGroup = null
+    sessions.forEach(function(s) {
+      const d = new Date(s.updated_at)
+      const dStr = d.toDateString()
+      let group = dStr === today ? 'Hari ini' : dStr === yesterday ? 'Kemarin' : d.toLocaleDateString('id-ID', {day:'2-digit', month:'long'})
+      if (group !== lastGroup) {
+        const label = document.createElement('div')
+        label.className = 'riwayat-group-label'
+        label.textContent = group
+        container.appendChild(label)
+        lastGroup = group
+      }
+      const item = document.createElement('div')
+      item.className = 'riwayat-item' + (s.id === currentSessionId ? ' active' : '')
+      item.setAttribute('data-id', s.id)
+      item.innerHTML = '<span class="riwayat-title">' + escHtml(s.title || 'Sesi tanpa judul') + '</span>'
+        + '<span class="riwayat-date">' + d.toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit'}) + '</span>'
+        + '<span class="riwayat-del" onclick="deleteSession(event, '' + s.id + '')">✕</span>'
+      item.addEventListener('click', function() { loadSession(s.id, s.title) })
+      container.appendChild(item)
+    })
+  } catch(e) {
+    container.innerHTML = '<div class="riwayat-empty">Gagal memuat riwayat.</div>'
+  }
+}
+
+async function loadSession(sessionId, title) {
+  try {
+    const res = await fetch('/api/sessions?id=' + sessionId, {
+      headers: { 'Authorization': 'Bearer ' + state.user.token }
+    })
+    const data = await res.json()
+    const messages = data.messages || []
+    currentSessionId = sessionId
+    state.messages = messages.map(function(m) {
+      return { role: m.role, content: m.content, sources: m.sources || [] }
+    })
+    const welcome = document.getElementById('welcome')
+    if (welcome) welcome.style.display = 'none'
+    const inner = document.getElementById('messages-inner')
+    inner.innerHTML = ''
+    if (welcome) inner.appendChild(welcome)
+    state.messages.forEach(function(m) { renderMessage(m) })
+    switchSidebarTab('db')
+    // highlight item aktif
+    document.querySelectorAll('.riwayat-item').forEach(function(el) {
+      el.classList.toggle('active', el.getAttribute('data-id') === sessionId)
+    })
+  } catch(e) { showToast('Gagal memuat sesi.', 'error') }
+}
+
+async function deleteSession(e, sessionId) {
+  e.stopPropagation()
+  try {
+    await fetch('/api/sessions', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.user.token },
+      body: JSON.stringify({ session_id: sessionId })
+    })
+    if (currentSessionId === sessionId) { currentSessionId = null; newChat() }
+    loadRiwayat()
+  } catch(e) { showToast('Gagal hapus sesi.', 'error') }
 }
 
 // ═══ SARAN & MASUKAN ═══

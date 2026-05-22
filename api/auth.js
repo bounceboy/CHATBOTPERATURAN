@@ -58,6 +58,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       token,
+      id: user.id,
       username: user.username,
       nama_lengkap: user.nama_lengkap || user.username,
       role: user.role,
