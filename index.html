@@ -2480,11 +2480,27 @@ function renderMessage(msg) {
     posBtn.onclick = () => {
       if (posBtn.classList.contains('active') || negBtn.classList.contains('active')) return
       posBtn.classList.add('active')
+      // Ambil userQuery dari pesan user sebelumnya jika kosong
+      if (!msg.userQuery) {
+        const msgs = state.messages
+        const idx = msgs.indexOf(msg)
+        for (let i = idx - 1; i >= 0; i--) {
+          if (msgs[i].role === 'user') { msg.userQuery = msgs[i].content; break }
+        }
+      }
       saveFeedback('positive', msg, null, null)
       showToast('Terima kasih atas masukan Anda.', 'success')
     }
     negBtn.onclick = () => {
       if (posBtn.classList.contains('active') || negBtn.classList.contains('active')) return
+      // Ambil userQuery dari pesan user sebelumnya jika kosong
+      if (!msg.userQuery) {
+        const msgs = state.messages
+        const idx = msgs.indexOf(msg)
+        for (let i = idx - 1; i >= 0; i--) {
+          if (msgs[i].role === 'user') { msg.userQuery = msgs[i].content; break }
+        }
+      }
       openFeedbackDialog(msg, negBtn)
     }
     fbRow.appendChild(posBtn)
