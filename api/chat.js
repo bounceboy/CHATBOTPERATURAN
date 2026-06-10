@@ -188,17 +188,23 @@ Output:`
       }),
     })
 
-    if (!res.ok) return query
+    if (!res.ok) {
+      console.error(`[QueryExpansion] HTTP ${res.status} dari OpenRouter`)
+      return query
+    }
     const data = await res.json()
     const expanded = data.choices?.[0]?.message?.content?.trim()
 
-    if (!expanded || expanded.length > 300 || expanded.length < 3) return query
+    if (!expanded || expanded.length > 300 || expanded.length < 3) {
+      console.log(`[QueryExpansion] output tidak valid: "${expanded}"`)
+      return query
+    }
 
-    console.log(`[QueryExpansion] "${query}" -> "${expanded}"`)
+    console.log(`[QueryExpansion] "${query.slice(0,60)}" -> "${expanded}"`)
     return expanded
 
   } catch (err) {
-    console.error('Query expansion error:', err.message)
+    console.error('[QueryExpansion] error:', err.message)
     return query
   }
 }
