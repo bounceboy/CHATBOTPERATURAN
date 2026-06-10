@@ -120,8 +120,8 @@ async function expandQuery(query, messages) {
   const isConceptual = !/pasal\s+\d+|pojk\s+\d+|seojk\s+\d+/i.test(query) && query.trim().split(/\s+/).length >= 4
 
   if (!needsContext && !isShort && !isConceptual) return query
-  // Follow-up tanpa history tidak bisa di-expand
-  if ((needsContext || isShort) && (!messages || messages.length < 2)) return query
+  // Follow-up tanpa history tidak bisa di-expand, kecuali query juga konseptual
+  if (!isConceptual && (needsContext || isShort) && (!messages || messages.length < 2)) return query
 
   try {
     const recentMessages = (messages || []).slice(-4).map(m => ({
