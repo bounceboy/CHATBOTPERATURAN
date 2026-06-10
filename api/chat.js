@@ -111,6 +111,75 @@ function normalizeQuery(q) {
   return result
 }
 
+// Query expansion: rewrite follow-up query menjadi standalone query
+// menggunakan konteks dari conversation history sebelum dikirim ke vector search
+async function expandQuery(query, messages) {
+  if (!messages || messages.length < 2) return query
+
+  const needsContext = /tersebut|tadi|diatas|di atas|pasal tersebut|hal tersebut|pelanggaran tersebut|kewajiban tersebut|ketentuan tersebut|aturan tersebut/i.test(query)
+  const isShort = query.trim().split(/\s+/).length <= 6
+  if (!needsContext && !isShort) return query
+
+  try {
+    const recentMessages = (messages || []).slice(-4).map(m => ({
+      role: m.role,
+      content: typeof m.content === 'string' ? m.content.slice(0, 300) : ''
+    }))
+
+    const expansionPrompt = `Kamu adalah asisten yang mengubah pertanyaan follow-up menjadi pertanyaan mandiri (standalone) untuk pencarian dokumen regulasi OJK.
+
+Tugas: Tulis ulang "Pertanyaan Terakhir" menjadi pertanyaan yang lengkap dan mandiri dengan menyertakan konteks dari riwayat percakapan.
+
+Aturan:
+- Ganti kata penunjuk ("tersebut", "itu", "tadi") dengan objek spesifiknya (nama pasal, nama POJK, topik konkret)
+- Sertakan nomor POJK dan nomor pasal jika relevan dari history
+- Pertahankan maksud asli pertanyaan user
+- Output HANYA pertanyaan yang sudah ditulis ulang, tanpa penjelasan apapun
+- Jika pertanyaan sudah mandiri dan tidak butuh konteks, kembalikan persis seperti semula
+
+Contoh:
+History: "Apa kewajiban pelaporan dalam Pasal 40 POJK 23/2023?"
+Jawaban: "Pasal 40 POJK 23/2023 mewajibkan pelaporan bulanan kepada OJK..."
+Pertanyaan Terakhir: "apakah ada sanksinya?"
+Output: "sanksi atas pelanggaran kewajiban pelaporan Pasal 40 POJK 23/2023"
+
+Riwayat percakapan:
+\${recentMessages.map(m => \`\${m.role === 'user' ? 'User' : 'Asisten'}: \${m.content}\`).join('\n')}
+
+Pertanyaan Terakhir: \${query}
+Output:`
+
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer \${process.env.OPENROUTER_API_KEY}`,
+        'HTTP-Referer': process.env.APP_URL || 'https://core-ojk.vercel.app',
+        'X-Title': 'CORE - Query Expansion',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.0-flash-exp:free',
+        max_tokens: 150,
+        temperature: 0,
+        messages: [{ role: 'user', content: expansionPrompt }],
+      }),
+    })
+
+    if (!res.ok) return query
+    const data = await res.json()
+    const expanded = data.choices?.[0]?.message?.content?.trim()
+
+    if (!expanded || expanded.length > 300 || expanded.length < 3) return query
+
+    console.log(`[QueryExpansion] "${query}" -> "${expanded}"`)
+    return expanded
+
+  } catch (err) {
+    console.error('Query expansion error:', err.message)
+    return query
+  }
+}
+
 function scoreChunk(query, chunk) {
   const ql_raw = query.toLowerCase()
   const tokens = ql_raw.replace(/[^\w\s]/g, '').split(/\s+/).filter(w => w.length > 2)
@@ -312,15 +381,19 @@ module.exports = async function handler(req, res) {
     const limit = file ? 12 : 10
     let chunks = []
 
+    // Query expansion: rewrite follow-up query jadi standalone sebelum retrieval
+    // Hanya untuk non-file query (file analysis tidak butuh expansion)
+    const expandedQuery = file ? effectiveQuery : await expandQuery(effectiveQuery, messages)
+
     // enrichedQuery HANYA untuk scoring, TIDAK untuk FTS search
     // Ini mencegah kata-kata dari history meracuni retrieval
     const recentContext = (messages || []).slice(-2)
       .map(m => typeof m.content === 'string' ? m.content.slice(0, 200) : '')
       .join(' ')
-    const enrichedQuery = effectiveQuery + ' ' + recentContext
-    // searchQuery HANYA dari query user saat ini — untuk FTS
+    const enrichedQuery = expandedQuery + ' ' + recentContext
+    // searchQuery HANYA dari expandedQuery — untuk FTS
     // Dinormalisasi untuk mengatasi keterbatasan FTS simple (tidak ada stemming)
-    const searchQuery = normalizeQuery(effectiveQuery)
+    const searchQuery = normalizeQuery(expandedQuery)
 
     // 1. Pasal eksplisit yang disebut (misal "Pasal 13") — filter by POJK dari history
     if (mentionedPasals.length > 0) {
@@ -338,12 +411,12 @@ module.exports = async function handler(req, res) {
 
     // 1.5 Vector similarity search — primary retrieval method
     try {
-      const queryEmbedding = await embedQuery(enrichedEffectiveQuery)
+      const queryEmbedding = await embedQuery(expandedQuery)
 
       // Deteksi apakah user menyebut POJK spesifik di query
       // Support: "POJK 72/2016", "POJK 72 Tahun 2016", "POJK 72" (tanpa tahun - lookup dari history)
-      const pojkInQuery = effectiveQuery.match(/(?:POJK|SEOJK)\s*(?:No\.?\s*)?(\d+)[\/\s]+(?:POJK\.\d+\/)?(?:Tahun\s+)?(\d{4})/i)
-        || effectiveQuery.match(/(?:POJK|SEOJK)\s*(?:No\.?\s*)?(\d+)(?!\d)/i)
+      const pojkInQuery = expandedQuery.match(/(?:POJK|SEOJK)\s*(?:No\.?\s*)?(\d+)[\/\s]+(?:POJK\.\d+\/)?(?:Tahun\s+)?(\d{4})/i)
+        || expandedQuery.match(/(?:POJK|SEOJK)\s*(?:No\.?\s*)?(\d+)(?!\d)/i)
 
       let filterSource = null
       if (pojkInQuery) {
