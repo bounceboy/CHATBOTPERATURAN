@@ -175,7 +175,7 @@ Output:`
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer \${process.env.OPENROUTER_API_KEY}`,
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
         'HTTP-Referer': process.env.APP_URL || 'https://core-ojk.vercel.app',
         'X-Title': 'CORE - Query Expansion',
       },
