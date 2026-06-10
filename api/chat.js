@@ -141,9 +141,13 @@ TUGAS: Terjemahkan skenario/pertanyaan bisnis ke frasa kewajiban/larangan yang k
 - Abaikan kata referensial ("tersebut", "hal ini", "itu") — fokus pada substansi masalahnya
 - Output singkat, 5-12 kata, tanpa penjelasan
 
+Aturan khusus:
+- Untuk "kekosongan jabatan direksi" (Direktur Keuangan, Direktur Teknik, dll) → JANGAN sebutkan nama jabatan spesifik, gunakan "kewajiban jumlah minimum anggota direksi" — karena pasal POJK mengatur jumlah, bukan nama jabatan
+- Untuk "kekosongan komisaris/DPS" → gunakan "kewajiban jumlah minimum anggota dewan komisaris/DPS"
+
 Contoh:
 "kekosongan Direktur Keuangan melanggar pasal berapa?" → "kewajiban jumlah minimum anggota direksi perusahaan asuransi"
-"Casenya perusahaan asuransi syariah ada kekosongan direksi, atas hal tersebut melanggar POJK berapa?" → "kewajiban jumlah minimum anggota direksi perusahaan asuransi syariah"
+"ada kekosongan direksi di perusahaan asuransi syariah" → "kewajiban jumlah minimum anggota direksi perusahaan asuransi syariah"
 "perusahaan tidak punya aktuaris" → "kewajiban memiliki aktuaris perusahaan asuransi"
 "modal perusahaan kurang dari minimum" → "persyaratan modal minimum ekuitas perusahaan asuransi"
 "DPS tidak hadir rapat" → "kewajiban kehadiran dewan pengawas syariah dalam rapat"
