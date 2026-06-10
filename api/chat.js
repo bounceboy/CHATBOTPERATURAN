@@ -129,46 +129,43 @@ async function expandQuery(query, messages) {
       content: typeof m.content === 'string' ? m.content.slice(0, 300) : ''
     }))
 
-    const expansionPrompt = `Kamu adalah asisten yang mengoptimalkan query untuk pencarian dokumen regulasi OJK.
+    // Dua prompt terpisah untuk menghindari kebingungan model ketika kedua kondisi aktif.
+    // isConceptual selalu diprioritaskan: translasi bahasa bisnis → frasa regulasi.
+    // Follow-up hanya berlaku ketika query BUKAN konseptual.
+    const expansionPrompt = isConceptual
+      ? `Kamu mengoptimalkan query untuk pencarian dokumen regulasi OJK (hukum/peraturan).
 
-Ada dua tugas:
+TUGAS: Terjemahkan skenario/pertanyaan bisnis ke frasa kewajiban/larangan yang kemungkinan ada di teks pasal POJK.
+- Fokus pada KEWAJIBAN yang dilanggar, bukan pada sanksinya
+- Pakai bahasa peraturan: "kewajiban", "wajib memiliki", "paling sedikit", "dilarang", dll
+- Abaikan kata referensial ("tersebut", "hal ini", "itu") — fokus pada substansi masalahnya
+- Output singkat, 5-12 kata, tanpa penjelasan
 
-TUGAS 1 — Follow-up query (ada kata "tersebut", "tadi", referensi ambigu, atau query sangat pendek):
-Tulis ulang menjadi pertanyaan mandiri dengan menyertakan konteks dari riwayat percakapan.
-- Ganti kata penunjuk ("tersebut", "itu", "tadi") dengan objek spesifiknya
-- Sertakan nomor POJK dan nomor pasal jika relevan dari history
+Contoh:
+"kekosongan Direktur Keuangan melanggar pasal berapa?" → "kewajiban jumlah minimum anggota direksi perusahaan asuransi"
+"Casenya perusahaan asuransi syariah ada kekosongan direksi, atas hal tersebut melanggar POJK berapa?" → "kewajiban jumlah minimum anggota direksi perusahaan asuransi syariah"
+"perusahaan tidak punya aktuaris" → "kewajiban memiliki aktuaris perusahaan asuransi"
+"modal perusahaan kurang dari minimum" → "persyaratan modal minimum ekuitas perusahaan asuransi"
+"DPS tidak hadir rapat" → "kewajiban kehadiran dewan pengawas syariah dalam rapat"
+"perusahaan terlambat lapor ke OJK" → "kewajiban penyampaian laporan berkala perusahaan asuransi"
 
-TUGAS 2 — Query konseptual (pakai bahasa bisnis, tidak menyebut pasal/POJK spesifik):
-Terjemahkan ke frasa regulasi yang kemungkinan besar ada di teks pasal POJK.
-- Ganti istilah bisnis dengan padanan kata yang dipakai di teks peraturan
-- Fokus pada frasa kewajiban/larangan/ketentuan yang relevan
+Pertanyaan: ${query}
+Output:`
+      : `Kamu mengoptimalkan query untuk pencarian dokumen regulasi OJK.
 
-Contoh TUGAS 1:
+TUGAS: Tulis ulang follow-up query menjadi pertanyaan mandiri dengan konteks dari riwayat percakapan.
+- Ganti kata penunjuk ("tersebut", "itu", "tadi") dengan objek spesifiknya dari history
+- Sertakan nomor POJK dan nomor pasal yang relevan dari history
+
+Contoh:
 History: "Apa kewajiban pelaporan dalam Pasal 40 POJK 23/2023?"
-Pertanyaan Terakhir: "apakah ada sanksinya?"
+Pertanyaan: "apakah ada sanksinya?"
 Output: "sanksi atas pelanggaran kewajiban pelaporan Pasal 40 POJK 23/2023"
 
-Contoh TUGAS 2:
-Pertanyaan Terakhir: "kekosongan Direktur Keuangan melanggar pasal berapa?"
-Output: "kewajiban jumlah minimum anggota direksi perusahaan asuransi"
-
-Contoh TUGAS 2:
-Pertanyaan Terakhir: "perusahaan tidak punya aktuaris"
-Output: "kewajiban memiliki aktuaris perusahaan asuransi"
-
-Contoh TUGAS 2:
-Pertanyaan Terakhir: "modal perusahaan kurang dari minimum"
-Output: "persyaratan modal minimum ekuitas perusahaan asuransi"
-
-Aturan:
-- Output HANYA query yang sudah ditulis ulang, tanpa penjelasan apapun
-- Jika pertanyaan sudah optimal untuk pencarian regulasi, kembalikan persis seperti semula
-- Maksimal 20 kata
-
-Riwayat percakapan (jika ada):
+Riwayat percakapan:
 ${recentMessages.map(m => `${m.role === 'user' ? 'User' : 'Asisten'}: ${m.content}`).join('\n')}
 
-Pertanyaan Terakhir: ${query}
+Pertanyaan: ${query}
 Output:`
 
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
