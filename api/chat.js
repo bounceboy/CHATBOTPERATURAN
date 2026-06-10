@@ -111,14 +111,17 @@ function normalizeQuery(q) {
   return result
 }
 
-// Query expansion: rewrite follow-up query menjadi standalone query
-// menggunakan konteks dari conversation history sebelum dikirim ke vector search
+// Query expansion: rewrite follow-up query dan query konseptual
+// menjadi query retrieval yang optimal sebelum dikirim ke vector search
 async function expandQuery(query, messages) {
-  if (!messages || messages.length < 2) return query
-
   const needsContext = /tersebut|tadi|diatas|di atas|pasal tersebut|hal tersebut|pelanggaran tersebut|kewajiban tersebut|ketentuan tersebut|aturan tersebut/i.test(query)
   const isShort = query.trim().split(/\s+/).length <= 6
-  if (!needsContext && !isShort) return query
+  // Query konseptual: pakai bahasa bisnis, tidak menyebut pasal/POJK spesifik
+  const isConceptual = !/pasal\s+\d+|pojk\s+\d+|seojk\s+\d+/i.test(query) && query.trim().split(/\s+/).length >= 4
+
+  if (!needsContext && !isShort && !isConceptual) return query
+  // Follow-up tanpa history tidak bisa di-expand
+  if ((needsContext || isShort) && (!messages || messages.length < 2)) return query
 
   try {
     const recentMessages = (messages || []).slice(-4).map(m => ({
@@ -126,27 +129,46 @@ async function expandQuery(query, messages) {
       content: typeof m.content === 'string' ? m.content.slice(0, 300) : ''
     }))
 
-    const expansionPrompt = `Kamu adalah asisten yang mengubah pertanyaan follow-up menjadi pertanyaan mandiri (standalone) untuk pencarian dokumen regulasi OJK.
+    const expansionPrompt = `Kamu adalah asisten yang mengoptimalkan query untuk pencarian dokumen regulasi OJK.
 
-Tugas: Tulis ulang "Pertanyaan Terakhir" menjadi pertanyaan yang lengkap dan mandiri dengan menyertakan konteks dari riwayat percakapan.
+Ada dua tugas:
 
-Aturan:
-- Ganti kata penunjuk ("tersebut", "itu", "tadi") dengan objek spesifiknya (nama pasal, nama POJK, topik konkret)
+TUGAS 1 — Follow-up query (ada kata "tersebut", "tadi", referensi ambigu, atau query sangat pendek):
+Tulis ulang menjadi pertanyaan mandiri dengan menyertakan konteks dari riwayat percakapan.
+- Ganti kata penunjuk ("tersebut", "itu", "tadi") dengan objek spesifiknya
 - Sertakan nomor POJK dan nomor pasal jika relevan dari history
-- Pertahankan maksud asli pertanyaan user
-- Output HANYA pertanyaan yang sudah ditulis ulang, tanpa penjelasan apapun
-- Jika pertanyaan sudah mandiri dan tidak butuh konteks, kembalikan persis seperti semula
 
-Contoh:
+TUGAS 2 — Query konseptual (pakai bahasa bisnis, tidak menyebut pasal/POJK spesifik):
+Terjemahkan ke frasa regulasi yang kemungkinan besar ada di teks pasal POJK.
+- Ganti istilah bisnis dengan padanan kata yang dipakai di teks peraturan
+- Fokus pada frasa kewajiban/larangan/ketentuan yang relevan
+
+Contoh TUGAS 1:
 History: "Apa kewajiban pelaporan dalam Pasal 40 POJK 23/2023?"
-Jawaban: "Pasal 40 POJK 23/2023 mewajibkan pelaporan bulanan kepada OJK..."
 Pertanyaan Terakhir: "apakah ada sanksinya?"
 Output: "sanksi atas pelanggaran kewajiban pelaporan Pasal 40 POJK 23/2023"
 
-Riwayat percakapan:
-\${recentMessages.map(m => \`\${m.role === 'user' ? 'User' : 'Asisten'}: \${m.content}\`).join('\n')}
+Contoh TUGAS 2:
+Pertanyaan Terakhir: "kekosongan Direktur Keuangan melanggar pasal berapa?"
+Output: "kewajiban jumlah minimum anggota direksi perusahaan asuransi"
 
-Pertanyaan Terakhir: \${query}
+Contoh TUGAS 2:
+Pertanyaan Terakhir: "perusahaan tidak punya aktuaris"
+Output: "kewajiban memiliki aktuaris perusahaan asuransi"
+
+Contoh TUGAS 2:
+Pertanyaan Terakhir: "modal perusahaan kurang dari minimum"
+Output: "persyaratan modal minimum ekuitas perusahaan asuransi"
+
+Aturan:
+- Output HANYA query yang sudah ditulis ulang, tanpa penjelasan apapun
+- Jika pertanyaan sudah optimal untuk pencarian regulasi, kembalikan persis seperti semula
+- Maksimal 20 kata
+
+Riwayat percakapan (jika ada):
+${recentMessages.map(m => `${m.role === 'user' ? 'User' : 'Asisten'}: ${m.content}`).join('\n')}
+
+Pertanyaan Terakhir: ${query}
 Output:`
 
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
