@@ -123,6 +123,18 @@ async function expandQuery(query, messages) {
   // Follow-up tanpa history tidak bisa di-expand, kecuali query juga konseptual
   if (!isConceptual && (needsContext || isShort) && (!messages || messages.length < 2)) return query
 
+  // Shortcut deterministik: pola bisnis yang sering gagal di LLM langsung di-map
+  // ke frasa regulasi yang sudah terbukti berhasil di vector search
+  if (isConceptual) {
+    const q = query.toLowerCase()
+    if (/kekosongan.*(direksi|direktur)|(direksi|direktur).*(kosong|kekosongan)/.test(q))
+      return 'kewajiban jumlah minimum anggota direksi perusahaan asuransi'
+    if (/kekosongan.*(komisaris|dewan komisaris)/.test(q))
+      return 'kewajiban jumlah minimum anggota dewan komisaris perusahaan asuransi'
+    if (/kekosongan.*(dps|dewan pengawas syariah)/.test(q))
+      return 'kewajiban jumlah minimum anggota dewan pengawas syariah perusahaan asuransi syariah'
+  }
+
   try {
     const recentMessages = (messages || []).slice(-4).map(m => ({
       role: m.role,
