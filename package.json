@@ -2,8 +2,10 @@
   "name": "chatbotperaturan",
   "version": "1.0.0",
   "private": true,
-  "dependencies": {
+"dependencies": {
     "@supabase/supabase-js": "^2.39.0",
-    "pdf-parse": "^1.1.1"
+    "dotenv": "^17.4.2",
+    "openai": "^6.42.0",
+    "pdf-parse": "1.1.1"
   }
 }

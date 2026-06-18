@@ -193,7 +193,7 @@ Output:`
         'X-Title': 'CORE - Query Expansion',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.0-flash-exp:free',
+        model: 'deepseek/deepseek-chat',
         max_tokens: 150,
         temperature: 0,
         messages: [{ role: 'user', content: expansionPrompt }],
@@ -301,7 +301,7 @@ function routeModel(query, chunks, hasFile) {
 }
 
 const FALLBACK_CHAINS = {
-  fast:     ['google/gemini-2.0-flash-exp:free', 'meta-llama/llama-3.3-70b-instruct:free', 'deepseek/deepseek-chat'],
+  fast:     ['meta-llama/llama-3.3-70b-instruct:free', 'deepseek/deepseek-chat', 'anthropic/claude-haiku-4-5'],
   balanced: ['deepseek/deepseek-chat', 'anthropic/claude-sonnet-4-5'],
   powerful: ['anthropic/claude-sonnet-4-5', 'openai/gpt-4o'],
 }
@@ -526,6 +526,96 @@ module.exports = async function handler(req, res) {
           console.log('[ekuitas boost] tambah', newChunks.length, 'chunk POJK 72/2016')
         }
       } catch(e) { console.error('Ekuitas boost error:', e.message) }
+    }
+
+    // 1.55 Relation-based retrieval — fetch pasal yang direferensikan via pojk_relations
+    if (chunks.length > 0) {
+      try {
+        const existIds = new Set(chunks.map(c => c.id))
+        const existPasal = new Set(chunks.map(c => `${c.source}::${c.pasal}`))
+
+        // Query per source agar tidak perlu nested AND/OR yang kompleks
+        const bySource = {}
+        for (const c of chunks.slice(0, 8)) {
+          if (!bySource[c.source]) bySource[c.source] = []
+          bySource[c.source].push(c.pasal)
+        }
+
+        const toFetch = new Map()    // source → Set<pasal> — forward refs (append)
+        const toFetchPrio = new Map() // source → Set<pasal> — reverse refs/sanksi (prepend)
+
+        for (const [source, pasals] of Object.entries(bySource)) {
+          // Forward: pasal ini mensyaratkan/mengacu ke / sanksi untuk pasal lain
+          const { data: fwdRels } = await db
+            .from('pojk_relations')
+            .select('to_source,to_pasal,from_pasal,relation')
+            .eq('from_source', source)
+            .in('from_pasal', pasals)
+            .in('relation', ['mensyaratkan', 'mengacu_ke', 'sanksi_untuk'])
+            .limit(10)
+
+          // Reverse: hanya sanksi_untuk (prepend prioritas) — tanpa limit agar tidak terpotong
+          const { data: revRels } = await db
+            .from('pojk_relations')
+            .select('from_source,from_pasal,relation')
+            .eq('to_source', source)
+            .in('to_pasal', pasals)
+            .eq('relation', 'sanksi_untuk')
+
+          for (const rel of (fwdRels || [])) {
+            if (rel.to_pasal === rel.from_pasal && rel.to_source === source) continue // skip self-ref
+            const key = `${rel.to_source}::${rel.to_pasal}`
+            if (!existPasal.has(key)) {
+              if (!toFetch.has(rel.to_source)) toFetch.set(rel.to_source, new Set())
+              toFetch.get(rel.to_source).add(rel.to_pasal)
+              existPasal.add(key)
+            }
+          }
+          for (const rel of (revRels || [])) {
+            const key = `${rel.from_source}::${rel.from_pasal}`
+            if (!existPasal.has(key)) {
+              // Reverse rels (pasal sanksi / wajib) diletakkan di prioritas tinggi (prepend)
+              if (!toFetchPrio.has(rel.from_source)) toFetchPrio.set(rel.from_source, new Set())
+              toFetchPrio.get(rel.from_source).add(rel.from_pasal)
+              existPasal.add(key)
+            }
+          }
+        }
+
+        // Ambil chunks prioritas (sanksi/wajib yang merujuk balik) — prepend ke depan
+        const prioChunks = []
+        for (const [source, pasals] of toFetchPrio.entries()) {
+          const { data: relChunks } = await db
+            .from('pojk_chunks')
+            .select('id, pasal, bab, bab_title, source, content')
+            .eq('source', source)
+            .in('pasal', [...pasals].slice(0, 5))
+          if (relChunks?.length > 0) {
+            const newChunks = relChunks.filter(c => !existIds.has(c.id))
+            prioChunks.push(...newChunks)
+            newChunks.forEach(c => existIds.add(c.id))
+            console.log(`[relations-prio] +${newChunks.length} chunk sanksi dari ${source} → depan context`)
+          }
+        }
+        if (prioChunks.length > 0) chunks = [...prioChunks, ...chunks]
+
+        // Ambil chunks forward refs — append di belakang
+        for (const [source, pasals] of toFetch.entries()) {
+          const { data: relChunks } = await db
+            .from('pojk_chunks')
+            .select('id, pasal, bab, bab_title, source, content')
+            .eq('source', source)
+            .in('pasal', [...pasals].slice(0, 5))
+          if (relChunks?.length > 0) {
+            const newChunks = relChunks.filter(c => !existIds.has(c.id))
+            chunks = [...chunks, ...newChunks]
+            newChunks.forEach(c => existIds.add(c.id))
+            console.log(`[relations] +${newChunks.length} chunk dari ${source} via relasi`)
+          }
+        }
+      } catch(relErr) {
+        console.error('Relation retrieval error:', relErr.message)
+      }
     }
 
     // 1.6 Sanksi query expansion — jika query menyebut kewajiban/pelanggaran,
@@ -785,8 +875,24 @@ module.exports = async function handler(req, res) {
       })
     }
 
-    const context = chunks.length > 0
-      ? chunks.map(c => `=== ${c.pasal} - ${sanitize(c.source)} (${c.bab || ''}) ===\n${sanitize(c.content)}`).join('\n\n')
+    // Deduplikasi chunks berdasarkan source+pasal, gabungkan konten jika ada duplikat
+    const seenPasal = new Map()
+    for (const c of chunks) {
+      const key = `${c.source}::${c.pasal}`
+      if (!seenPasal.has(key)) {
+        seenPasal.set(key, { ...c })
+      } else {
+        // Gabungkan konten jika berbeda (dari chunk yang berbeda untuk pasal yang sama)
+        const existing = seenPasal.get(key)
+        if (!existing.content.includes(c.content.slice(0, 50))) {
+          existing.content = existing.content + '\n' + c.content
+        }
+      }
+    }
+    const dedupedChunks = [...seenPasal.values()]
+
+    const context = dedupedChunks.length > 0
+      ? dedupedChunks.map(c => `=== ${c.pasal} - ${sanitize(c.source)} (${c.bab || ''}) ===\n${sanitize(c.content)}`).join('\n\n')
       : 'Tidak ada pasal yang relevan ditemukan dalam database.'
 
     // System prompt berbeda untuk file analysis vs chat biasa
@@ -816,14 +922,15 @@ INSTRUKSI:
       : `Kamu adalah konsultan regulasi OJK yang ahli dalam peraturan sektor perasuransian dan jasa keuangan Indonesia.
 
 INSTRUKSI WAJIB — DILARANG DILANGGAR:
-1. Jawab HANYA berdasarkan teks dari konteks pasal yang diberikan. TIDAK BOLEH menggunakan pengetahuan di luar konteks.
-2. DILARANG KERAS menyebut nomor angka (Rp, %, hari, dsb) yang tidak muncul verbatim di konteks. Jika angkanya tidak ada di konteks, jangan sebut.
-3. DILARANG menyebut "Pasal X ayat (Y)" jika isi pasal/ayat tersebut tidak ada dalam konteks. Cek dulu sebelum menyebut.
-4. Jika konteks yang diberikan tidak mengandung jawaban atas pertanyaan user, jawab: "Informasi tentang [topik] tidak ditemukan dalam database POJK yang tersedia. Silakan merujuk langsung ke teks peraturan resmi."
-5. Selalu cantumkan sumber tepat: nama POJK lengkap dan nomor pasal dari konteks.
-6. Jika user meminta "bunyi" atau "isi" pasal, KUTIP LANGSUNG dari konteks — jangan parafrase.
-7. Pertahankan konsistensi dengan jawaban sebelumnya dalam percakapan.
-8. Gunakan Bahasa Indonesia yang formal namun mudah dipahami.`
+1. Jawab HANYA berdasarkan teks dari konteks pasal yang diberikan di bawah (KONTEKS PASAL POJK). TIDAK BOLEH menggunakan pengetahuan di luar konteks tersebut.
+2. DILARANG KERAS menyebut nomor angka (Rp, %, hari, dsb) yang tidak muncul verbatim di KONTEKS PASAL saat ini. Angka dari jawaban sebelumnya di percakapan TIDAK boleh dipakai — harus ada di konteks saat ini.
+3. DILARANG menyebut "Pasal X ayat (Y)" jika isi pasal/ayat tersebut tidak ada dalam konteks saat ini. Cek dulu sebelum menyebut.
+4. Baca SELURUH konteks dengan teliti sebelum menjawab. Pasal sanksi sering berbunyi "Pelanggaran terhadap ketentuan Pasal X dikenakan sanksi..." — ini berarti pasal tersebut adalah sanksi untuk Pasal X. Hubungkan secara eksplisit dalam jawabanmu.
+5. Hanya katakan "tidak ditemukan" jika setelah membaca SELURUH konteks benar-benar tidak ada pasal yang relevan. Jangan terburu-buru menyimpulkan tidak ditemukan.
+6. Selalu cantumkan sumber tepat: nama POJK lengkap dan nomor pasal dari konteks.
+7. Jika user meminta "bunyi" atau "isi" pasal, KUTIP LANGSUNG dari konteks — jangan parafrase.
+8. Jangan mengasumsikan bahwa ketentuan untuk satu jenis entitas berlaku sama untuk jenis lain (misal: konvensional ≠ syariah) kecuali konteks menyatakan demikian secara eksplisit.
+9. Gunakan Bahasa Indonesia yang formal namun mudah dipahami.`
 
     // Build messages
     let apiMessages
@@ -835,8 +942,23 @@ INSTRUKSI WAJIB — DILARANG DILANGGAR:
       )
     } else {
       const contextMsg = `KONTEKS PASAL POJK:\n${context}`
+      // Hanya sertakan user messages dari history (bukan assistant) untuk mencegah
+      // LLM menggunakan angka/fakta dari jawabannya sendiri sebagai ground truth
+      const historyMessages = (messages || []).slice(-8).reduce((acc, m, i, arr) => {
+        if (m.role === 'user') {
+          // Sertakan user message + assistant reply singkat (tanpa angka) jika ada
+          acc.push({ role: 'user', content: typeof m.content === 'string' ? m.content.slice(0, 300) : '' })
+          const next = arr[i + 1]
+          if (next?.role === 'assistant') {
+            // Strip angka dari assistant message agar tidak jadi "fakta" di turn berikutnya
+            const stripped = (typeof next.content === 'string' ? next.content : '').replace(/Rp[\d.,]+(?:\s*\([^)]+\))?/g, '[angka]').slice(0, 400)
+            acc.push({ role: 'assistant', content: stripped })
+          }
+        }
+        return acc
+      }, []).slice(-6)
       apiMessages = [
-        ...(messages || []).slice(-6),
+        ...historyMessages,
         { role: 'user', content: `${effectiveQuery}\n\n${contextMsg}` }
       ]
     }
@@ -848,7 +970,7 @@ INSTRUKSI WAJIB — DILARANG DILANGGAR:
       content: result.content,
       model: result.model,
       tier: result.tier,
-      sources: chunks.map(c => ({
+      sources: dedupedChunks.map(c => ({
         id: c.id, pasal: c.pasal, bab: c.bab, source: c.source,
         preview: (c.content || '').slice(0, 200) + '...',
       })),

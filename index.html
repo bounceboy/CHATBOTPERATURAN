@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CORE — Regulatory Explorer</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3CradialGradient id='g' cx='50%25' cy='50%25' r='60%25'%3E%3Cstop offset='0%25' stop-color='%23FF4D2E'/%3E%3Cstop offset='100%25' stop-color='%23FFFFFF'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='50' cy='50' r='50' fill='url(%23g)'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -456,6 +457,44 @@ input, textarea { font-family: inherit; color: inherit; }
 .tool-chip { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:100px; background:rgba(10,10,10,.04); color:var(--dim); cursor:default; border:1px solid transparent; font-family:var(--font-mono); font-size:10px; }
 #disclaimer { max-width:780px; margin:10px auto 0; font-family:var(--font-mono); font-size:10px; letter-spacing:.1em; text-align:center; color:var(--dim-2); }
 
+/* ═══ POJK PREVIEW PANEL ═══ */
+#pojk-preview-panel {
+  display: none; flex-direction: column; flex: 1; min-height: 0;
+}
+#pojk-preview-panel.active { display: flex; }
+.pp-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0; background: var(--surface);
+}
+.pp-back {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--dim); cursor: pointer;
+  background: none; border: 1px solid var(--line); border-radius: 6px;
+  padding: 5px 10px; font-family: var(--font-body);
+  transition: color .15s, border-color .15s; flex-shrink: 0;
+}
+.pp-back:hover { color: var(--ink); border-color: var(--ink-3); }
+.pp-meta { flex: 1; min-width: 0; }
+.pp-title { font-size: 13px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pp-subtitle { font-size: 10px; color: var(--dim); font-family: var(--font-mono); margin-top: 1px; }
+.pp-tabs { display: flex; gap: 2px; background: var(--bg); border-radius: 8px; padding: 3px; flex-shrink: 0; }
+.pp-tab {
+  padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 500;
+  font-family: var(--font-body); cursor: pointer; border: none;
+  background: transparent; color: var(--dim); transition: all .15s;
+}
+.pp-tab.active { background: var(--surface-raised); color: var(--ink); box-shadow: 0 1px 4px rgba(10,10,10,.08); }
+.pp-body { flex: 1; position: relative; min-height: 0; }
+.pp-pane { position: absolute; inset: 0; display: none; }
+.pp-pane.active { display: block; }
+.pp-pane iframe { width: 100%; height: 100%; border: none; }
+.pp-no-pdf {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100%; gap: 10px; color: var(--dim); font-size: 13px;
+}
+
 /* ═══ ADMIN ═══ */
 #admin-panel { display:none; flex-direction:column; flex:1; min-height:0; overflow-y:auto; padding:32px 28px 40px; }
 #admin-panel.active { display:flex; }
@@ -727,6 +766,25 @@ input, textarea { font-family: inherit; color: inherit; }
       </div>
     </div>
 
+    <!-- POJK Preview panel -->
+    <div id="pojk-preview-panel">
+      <div class="pp-header">
+        <button class="pp-back" onclick="closePojkPreview()">← Kembali</button>
+        <div class="pp-meta">
+          <div class="pp-title" id="pp-title"></div>
+          <div class="pp-subtitle" id="pp-subtitle"></div>
+        </div>
+        <div class="pp-tabs">
+          <button class="pp-tab active" data-tab="pdf" onclick="switchPpTab('pdf')">PDF</button>
+          <button class="pp-tab" data-tab="graf" onclick="switchPpTab('graf')">Graf Relasi</button>
+        </div>
+      </div>
+      <div class="pp-body">
+        <div class="pp-pane active" id="pp-pane-pdf" data-pane="pdf"></div>
+        <div class="pp-pane" id="pp-pane-graf" data-pane="graf"></div>
+      </div>
+    </div>
+
     <!-- Admin panel -->
     <section id="admin-panel">
       <div style="max-width:1100px;width:100%;margin:0 auto;">
@@ -786,8 +844,8 @@ input, textarea { font-family: inherit; color: inherit; }
                 <div class="stat-label">Chunks</div>
               </div>
               <div class="stat-box">
-                <div class="stat-val" id="stat-pasal">0</div>
-                <div class="stat-label">Pasal</div>
+                <div class="stat-val" id="stat-relasi">0</div>
+                <div class="stat-label">Relasi</div>
               </div>
             </div>
           </div>
@@ -979,7 +1037,7 @@ input, textarea { font-family: inherit; color: inherit; }
     </div>
     <div class="saran-actions">
       <button class="saran-cancel" onclick="closeSaranDialog()">Batal</button>
-      <button class="saran-submit" onclick="submitSaran()">Kirim</button>
+      <button class="saran-submit" onclick="submitSaran()">Kirim <span class="arrow"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></span></button>
     </div>
   </div>
 </div>
@@ -1135,19 +1193,24 @@ function showPanel(name) {
   state.panel = name
   const chat = document.getElementById('chat-panel')
   const admin = document.getElementById('admin-panel')
+  const preview = document.getElementById('pojk-preview-panel')
   const adminBtn = document.getElementById('admin-toggle-btn')
   const titleEl = document.getElementById('topbar-title-text')
+  chat.style.display = 'none'
+  admin.classList.remove('active')
+  preview.classList.remove('active')
+  adminBtn.classList.remove('active')
   if (name === 'admin') {
-    chat.style.display = 'none'
     admin.classList.add('active')
     titleEl.textContent = 'Panel Admin'
     adminBtn.classList.add('active')
     loadAdminData()
+  } else if (name === 'pojk') {
+    preview.classList.add('active')
+    titleEl.textContent = ''
   } else {
     chat.style.display = 'flex'
-    admin.classList.remove('active')
     titleEl.textContent = currentSessionId ? titleEl.textContent : ''
-    adminBtn.classList.remove('active')
   }
 }
 
@@ -1266,8 +1329,7 @@ function renderPojkSidebar(list) {
     div.innerHTML = `
       <div class="pi-row1">
         <span class="pi-num">${escHtml(p.nomor || '')}</span>
-        
-        ${p.file_url ? `<a href="${escHtml(p.file_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Lihat PDF" style="margin-left:auto;color:var(--dim-2);display:flex;align-items:center;transition:color .15s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--dim-2)'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="13" x2="12" y2="17"/><line x1="10" y1="15" x2="14" y2="15"/></svg></a>` : ''}
+        <button onclick="event.stopPropagation();openPojkPreview('${escAttr(p.nama||'')}','${escAttr(p.nomor||'')}','${escAttr(p.file_url||'')}')" title="Lihat POJK" style="margin-left:auto;background:none;border:none;padding:0;cursor:pointer;color:var(--dim-2);display:flex;align-items:center;transition:color .15s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--dim-2)'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="13" x2="12" y2="17"/><line x1="10" y1="15" x2="14" y2="15"/></svg></button>
       </div>
       <div class="pi-name">${escHtml(p.nama || '')}</div>`
     div.onclick = () => {
@@ -1301,7 +1363,13 @@ async function loadAdminData() {
     document.getElementById('stat-chunks').innerHTML = totalChunks >= 1000
       ? `${(totalChunks/1000).toFixed(1)}<span class="unit">k</span>`
       : String(totalChunks)
-    document.getElementById('stat-pasal').textContent = pojkList.reduce((s, p) => s + (p.jumlah_pasal || 0), 0)
+    fetch(SUPA_URL+'/rest/v1/pojk_relations?select=id', {
+      headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer '+SUPA_ANON, 'Prefer': 'count=exact', 'Range': '0-0' }
+    }).then(r => {
+      const count = parseInt(r.headers.get('content-range')?.split('/')[1] || '0')
+      const el = document.getElementById('stat-relasi')
+      el.innerHTML = count >= 1000 ? `${(count/1000).toFixed(1)}<span class="unit">k</span>` : String(count)
+    })
   } catch(e) { console.error('loadAdminData error:', e) }
 }
 
@@ -1326,7 +1394,7 @@ function renderAdminList(list) {
       </div>
       <div class="apl-actions">
         ${p.file_url ? `<a href="${p.file_url}" target="_blank" rel="noopener" class="apl-btn" style="text-decoration:none;">PDF</a>` : ''}
-        <button class="apl-btn del" onclick="deletePojk('${p.id}', '${escAttr(p.nama || '')}')">Hapus</button>
+<button class="apl-btn del" onclick="deletePojk('${p.id}', '${escAttr(p.nama || '')}')">Hapus</button>
       </div>`
     el.appendChild(row)
   })
@@ -1392,18 +1460,60 @@ async function uploadPojkBatch(files) {
   }
 
   function makeChunks(fullText, sourceName, title) {
-    const chunks = [], prefix = title ? '['+sourceName+' — '+title+']\n' : '['+sourceName+']\n'
-    const secs = fullText.split(/(?=\nPasal\s+\d+\b)/gi)
-    for (const sec of secs) {
-      const pm = sec.match(/^[\s\n]*(Pasal\s+\d+)\b/i)
-      const pasal = pm ? pm[1].trim() : 'Bagian '+(chunks.length+1)
-      const text = sec.trim(); if (text.length < 30) continue
-      if (text.length > 1800) {
-        for (let i = 0; i < text.length; i += 1300) { const sub = text.slice(i,i+1500).trim(); if (sub.length>30) chunks.push({pasal,content:prefix+sub}) }
-      } else { chunks.push({pasal,content:prefix+text}) }
+    const prefix = title ? '['+sourceName+' — '+title+']\n' : '['+sourceName+']\n'
+    const clean = fullText.replace(/\f/g,'\n').replace(/[ \t]+/g,' ').replace(/\n{3,}/g,'\n\n')
+
+    // Pisah bagian PENJELASAN
+    const pjIdx = clean.search(/\nPENJELASAN\n/)
+    const mainText = pjIdx > 0 ? clean.slice(0, pjIdx) : clean
+
+    // Deteksi BAB
+    const babPattern = /\nBAB ([IVX]+)\n([A-Z][A-Z\s,/]+?)\n/gm
+    const babs = []
+    let bm
+    while ((bm = babPattern.exec(mainText)) !== null) {
+      babs.push({ pos: bm.index, num: bm[1], title: bm[2].trim() })
     }
+    const getBab = pos => {
+      let cur = { num: 'I', title: 'KETENTUAN UMUM' }
+      for (const b of babs) { if (b.pos <= pos) cur = b; else break }
+      return cur
+    }
+
+    // Split per pasal
+    const pasalRe = /(?:^|\n)(Pasal \d+)\n/gm
+    const splits = []
+    let pm
+    while ((pm = pasalRe.exec(mainText)) !== null) {
+      splits.push({ pasal: pm[1].trim(), pos: pm.index })
+    }
+
+    const chunks = [], seen = new Set()
+    for (let i = 0; i < splits.length; i++) {
+      const { pasal, pos } = splits[i]
+      const num = parseInt(pasal.replace('Pasal ',''))
+      if (seen.has(num)) continue
+      seen.add(num)
+      const end = i+1 < splits.length ? splits[i+1].pos : mainText.length
+      let content = mainText.slice(pos, end).replace(/\s*-\s*\d+\s*-\s*/g,' ').replace(/\s{2,}/g,' ').trim()
+      if (content.length < 30) continue
+      const bab = getBab(pos)
+      if (content.length > 1800) {
+        for (let j=0;j<content.length;j+=1300) {
+          const sub = content.slice(j,j+1500).trim()
+          if (sub.length>30) chunks.push({pasal:`Pasal ${num}`,bab:`BAB ${bab.num}`,bab_title:bab.title,content:prefix+sub})
+        }
+      } else {
+        chunks.push({pasal:`Pasal ${num}`,bab:`BAB ${bab.num}`,bab_title:bab.title,content:prefix+content})
+      }
+    }
+
+    // Fallback jika tidak ada pasal terdeteksi
     if (!chunks.length && fullText.trim().length>0) {
-      for (let i=0;i<fullText.length;i+=850) { const sub=fullText.slice(i,i+1000).trim(); if(sub.length>50) chunks.push({pasal:'Bagian '+(Math.floor(i/850)+1),content:prefix+sub}) }
+      for (let i=0;i<fullText.length;i+=850) {
+        const sub=fullText.slice(i,i+1000).trim()
+        if(sub.length>50) chunks.push({pasal:'Bagian '+(Math.floor(i/850)+1),bab:null,bab_title:null,content:prefix+sub})
+      }
     }
     return chunks
   }
@@ -1447,24 +1557,26 @@ async function uploadPojkBatch(files) {
       if (!lr.ok) throw new Error('Insert pojk_list gagal')
       const pojk_id = (await lr.json())[0].id
 
-      statusEl.textContent='Embedding '+chunks.length+' chunks...'
-      const BATCH=20, emb=[]
-      for (let i=0;i<chunks.length;i+=BATCH) {
-        const b=chunks.slice(i,i+BATCH), vecs=await embed(b.map(c=>c.content))
-        b.forEach((c,j)=>emb.push({...c,embedding:vecs[j]}))
-        statusEl.textContent='Embedding '+(i+b.length)+'/'+chunks.length+' ('+Math.round(((i+b.length)/chunks.length)*100)+'%)...'
-      }
+      statusEl.textContent='Embedding & menyimpan '+chunks.length+' chunks...'
+      const embedPayload = chunks.map(c => ({ pasal: c.pasal, bab: c.bab||null, bab_title: c.bab_title||null, content: c.content, source: meta.nama }))
+      const er = await fetch('/api/admin-embed', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+(state.user?.token||'')}, body: JSON.stringify({ pojk_id, chunks: embedPayload }) })
+      if (!er.ok) throw new Error('Embedding gagal: ' + (await er.text()))
+      const emb = await er.json()
 
-      statusEl.textContent='Menyimpan...'
-      const BS=20
-      for (let si=0;si<emb.length;si+=BS) {
-        const batch=emb.slice(si,si+BS).map(c=>({pojk_id,pasal:c.pasal,bab:null,bab_title:null,content:c.content,source:meta.nama,embedding:c.embedding}))
-        const sr=await fetch(SUPA_URL+'/rest/v1/pojk_chunks',{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON,'Prefer':'return=minimal'},body:JSON.stringify(batch)})
-        if (!sr.ok) throw new Error('Supabase insert gagal: '+await sr.text())
-        statusEl.textContent='Menyimpan '+Math.min(si+BS,emb.length)+'/'+emb.length+'...'
+      statusEl.textContent='Ekstrak relasi antar-pasal...'
+      try {
+        const xr = await fetch('/api/admin-extract-relations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+(state.user?.token||'') },
+          body: JSON.stringify({ source: meta.nama })
+        })
+        const xd = xr.ok ? await xr.json() : null
+        const relInfo = xd ? ' · '+xd.relasi_ditemukan+' relasi' : ''
+        statusEl.className='bi-status done'; statusEl.textContent='✓ '+emb.inserted+' chunks'+relInfo
+      } catch {
+        statusEl.className='bi-status done'; statusEl.textContent='✓ '+emb.inserted+' chunks (relasi: skip)'
       }
-
-      statusEl.className='bi-status done'; statusEl.textContent='✓ '+emb.length+' chunks'; done++
+      done++
     } catch(e) {
       statusEl.className='bi-status error'; statusEl.textContent='✗ Gagal'
       document.getElementById('bi-'+index).title=e.message
@@ -1492,6 +1604,29 @@ async function deletePojk(id, nama) {
       loadPojkList(); loadAdminData()
     } catch(e) { showToast('Hapus gagal: ' + e.message, 'error') }
   })
+}
+
+async function ekstrakRelasi(id, nama) {
+  const btn = document.getElementById('rel-btn-' + id)
+  if (!btn || btn.disabled) return
+  btn.disabled = true
+  btn.textContent = '...'
+  try {
+    const res = await fetch('/api/admin-extract-relations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (state.user?.token || '') },
+      body: JSON.stringify({ source: nama })
+    })
+    const data = res.ok ? await res.json() : null
+    if (!res.ok) throw new Error(data?.error || 'Gagal ekstrak relasi')
+    btn.textContent = data.relasi_ditemukan + ' rel'
+    showToast(`${nama}: ${data.relasi_ditemukan} relasi dari ${data.pasal_diproses} pasal.`, 'success')
+  } catch(e) {
+    btn.textContent = 'Relasi'
+    showToast('Ekstrak relasi gagal: ' + e.message, 'error')
+  } finally {
+    btn.disabled = false
+  }
 }
 
 // ═══ CHAT ═══
@@ -2674,7 +2809,41 @@ function showConfirm(title, body, onOk, okLabel = 'Hapus') {
 }
 function closeConfirm() { document.getElementById('confirm-overlay').classList.remove('show') }
 function confirmOk() { closeConfirm() }
+
+// ═══ POJK PREVIEW PANEL ═══
+function openPojkPreview(nama, nomor, fileUrl) {
+  document.getElementById('pp-title').textContent = nama
+  document.getElementById('pp-subtitle').textContent = nomor
+
+  const pdfPane = document.getElementById('pp-pane-pdf')
+  const grafPane = document.getElementById('pp-pane-graf')
+
+  if (fileUrl) {
+    pdfPane.innerHTML = `<iframe src="${escHtml(fileUrl)}" title="PDF ${escHtml(nama)}"></iframe>`
+  } else {
+    pdfPane.innerHTML = `<div class="pp-no-pdf"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--dim-2)"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>PDF tidak tersedia untuk POJK ini</span></div>`
+  }
+
+  const grafUrl = `/graph.html?embed=1&source=${encodeURIComponent(nama)}&level=pojk`
+  grafPane.innerHTML = `<iframe src="${grafUrl}" title="Graf ${escHtml(nama)}"></iframe>`
+
+  switchPpTab('pdf')
+  showPanel('pojk')
+}
+
+function closePojkPreview() {
+  document.getElementById('pp-pane-pdf').innerHTML = ''
+  document.getElementById('pp-pane-graf').innerHTML = ''
+  showPanel('chat')
+}
+
+function switchPpTab(tab) {
+  document.querySelectorAll('.pp-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab))
+  document.querySelectorAll('.pp-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === tab))
+}
 </script>
+
+
 </body>
 </html>
 

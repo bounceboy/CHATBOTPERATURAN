@@ -96,8 +96,8 @@ function chunkText(fullText, sourceName, title) {
 
     if (content.length < 30) { pos += section.length; continue }
 
-    if (content.length > 1800) {
-      const subChunkSize = 1500
+    if (content.length > 3000) {
+      const subChunkSize = 2500
       const overlap = 200
       for (let i = 0; i < content.length; i += subChunkSize - overlap) {
         const sub = content.slice(i, i + subChunkSize).trim()
