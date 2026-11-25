@@ -3,6 +3,7 @@
 // Embed chunks server-side menggunakan OPENAI_API_KEY, lalu simpan ke pojk_chunks
 
 import { createClient } from '@supabase/supabase-js'
+import { verifyAdmin } from './_verify.js'
 
 export const config = { maxDuration: 120 }
 
@@ -10,17 +11,6 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
-
-async function verifyToken(req) {
-  const auth = req.headers.authorization || ''
-  const token = auth.replace('Bearer ', '')
-  if (!token) return null
-  try {
-    const payload = JSON.parse(atob(token.split('.')[0]))
-    if (payload.exp < Date.now()) return null
-    return payload
-  } catch { return null }
-}
 
 async function embedTexts(texts) {
   const res = await fetch('https://api.openai.com/v1/embeddings', {
@@ -46,15 +36,35 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end()
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
-  const user = await verifyToken(req)
-  if (!user || user.role !== 'admin') return res.status(401).json({ error: 'Unauthorized.' })
+  if (!verifyAdmin(req.headers.authorization)) {
+    return res.status(401).json({ error: 'Sesi tidak valid. Silakan login ulang.' })
+  }
 
   const { pojk_id, chunks } = req.body || {}
   if (!pojk_id || !Array.isArray(chunks) || chunks.length === 0) {
     return res.status(400).json({ error: 'pojk_id dan chunks wajib diisi.' })
   }
 
+  const { data: pojk, error: pojkErr } = await supabase
+    .from('pojk_list').select('nama, sektor, status, jenis_dokumen').eq('id', pojk_id).single()
+  if (pojkErr || !pojk?.sektor) return res.status(400).json({ error: 'Peraturan tidak ditemukan atau sektor belum diisi.' })
+
+  const { count: chunkAwal, error: countErr } = await supabase
+    .from('pojk_chunks').select('id', { count: 'exact', head: true }).eq('pojk_id', pojk_id)
+  if (countErr || chunkAwal > 0) return res.status(409).json({ error: 'Peraturan ini sudah memiliki chunk.' })
+
   try {
+    // Versi lama dengan nama sama: pertahankan kategorinya, hapus setelah versi baru tersimpan
+    const { data: lama } = await supabase
+      .from('pojk_list').select('id').eq('nama', pojk.nama).neq('id', pojk_id)
+    const idLama = (lama || []).map(x => x.id)
+    let kategori = ['dapen', 'penjaminan'].includes(pojk.sektor) ? pojk.sektor : 'keduanya'
+    if (kategori === 'keduanya' && idLama.length > 0) {
+      const { data: contoh } = await supabase
+        .from('pojk_chunks').select('kategori').in('pojk_id', idLama).limit(1)
+      if (['syariah', 'konvensional'].includes(contoh?.[0]?.kategori)) kategori = contoh[0].kategori
+    }
+
     // Embed server-side dalam batch 20 (batas OpenAI per request)
     const EMBED_BATCH = 20
     const allEmbeddings = []
@@ -72,6 +82,10 @@ export default async function handler(req, res) {
       content: c.content,
       source: c.source,
       embedding: allEmbeddings[i],
+      sektor: pojk.sektor,
+      status: pojk.status,
+      jenis_dokumen: pojk.jenis_dokumen,
+      kategori,
     }))
 
     // Insert batch 50
@@ -83,11 +97,17 @@ export default async function handler(req, res) {
       inserted += batch.length
     }
 
+    if (idLama.length > 0) {
+      const { error } = await supabase.from('pojk_list').delete().in('id', idLama) // chunk ikut terhapus (cascade)
+      if (error) console.error('[embed] Gagal menghapus versi lama:', error.message)
+    }
+
     console.log(`[embed] ✅ ${inserted} chunks tersimpan untuk pojk_id=${pojk_id}`)
     return res.status(200).json({ success: true, inserted })
 
   } catch (err) {
     console.error('[embed] Error:', err.message)
+    await supabase.from('pojk_list').delete().eq('id', pojk_id) // batalkan versi baru yang tidak lengkap
     return res.status(500).json({ error: err.message })
   }
 }

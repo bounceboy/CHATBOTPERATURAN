@@ -814,6 +814,19 @@ input, textarea { font-family: inherit; color: inherit; }
             <span class="admin-card-title">Upload POJK</span>
             <span class="admin-card-meta">PDF · max 50MB</span>
           </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+            <select class="saran-input" id="upload-sektor" aria-label="Sektor peraturan" style="flex:1;min-width:160px;">
+              <option value="">Pilih sektor...</option>
+              <option value="asuransi">Perasuransian</option>
+              <option value="dapen">Dana Pensiun</option>
+              <option value="penjaminan">Penjaminan</option>
+              <option value="lintas">Lintas sektor</option>
+            </select>
+            <select class="saran-input" id="upload-status" aria-label="Status peraturan" style="flex:1;min-width:160px;">
+              <option value="berlaku">Berlaku</option>
+              <option value="dicabut">Dicabut</option>
+            </select>
+          </div>
           <div id="drop-zone" onclick="document.getElementById('pojk-file-input').click()" ondragover="dzDragOver(event)" ondragleave="dzDragLeave(event)" ondrop="dzDrop(event)">
             <div class="dz-icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -1420,6 +1433,9 @@ async function uploadPojkBatch(files) {
   const oversized = files.filter(f => f.size > 50 * 1024 * 1024)
   if (oversized.length) { showToast(oversized.length + ' file melebihi 50MB.', 'error'); files = files.filter(f => f.size <= 50 * 1024 * 1024) }
   if (!files.length) return
+  const sektor = document.getElementById('upload-sektor').value
+  const status = document.getElementById('upload-status').value
+  if (!sektor) { showToast('Pilih sektor peraturan terlebih dahulu.', 'error'); return }
   const queueEl = document.getElementById('batch-queue')
   queueEl.innerHTML = ''; queueEl.style.display = 'flex'
   const items = files.map((file, i) => {
@@ -1446,12 +1462,14 @@ async function uploadPojkBatch(files) {
   }
 
   function parseMeta(filename) {
-    const m = filename.match(/pojk[_\s./No.-]*(\d+)[_\s./TahunNo.-]*(\d{4})/i)
-    if (m) return { nomor: m[1]+'/'+m[2], nama: 'POJK No. '+m[1]+' Tahun '+m[2], tahun: parseInt(m[2]) }
-    const s = filename.match(/seojk[_\s./No.-]*(\d+)[_\s./TahunNo.-]*(\d{4})/i)
-    if (s) return { nomor: 'SE-'+s[1]+'/'+s[2], nama: 'SEOJK No. '+s[1]+' Tahun '+s[2], tahun: parseInt(s[2]) }
+    // SEOJK harus dicek sebelum POJK
+    const m = filename.match(/(seojk|pojk|padk|pmk|uu|pp)(?![a-z])[_\s./No.-]*(\d+)[_\s./TahunNo.-]*(\d{4})/i)
+    if (m) {
+      const jenis = m[1].toUpperCase()
+      return { jenis, nomor: (jenis==='SEOJK'?'SE-':'')+m[2]+'/'+m[3], nama: jenis+' No. '+m[2]+' Tahun '+m[3], tahun: parseInt(m[3]) }
+    }
     const t = filename.match(/(\d{4})/); const yr = t ? parseInt(t[1]) : new Date().getFullYear()
-    return { nomor: 'upload-'+Date.now(), nama: filename.replace(/\.pdf$/i,'').replace(/[_-]/g,' ').trim(), tahun: yr }
+    return { jenis: 'Lainnya', nomor: 'upload-'+Date.now(), nama: filename.replace(/\.pdf$/i,'').replace(/[_-]/g,' ').trim(), tahun: yr }
   }
 
   function getTitle(text) {
@@ -1545,17 +1563,9 @@ async function uploadPojkBatch(files) {
       const chunks = makeChunks(fullText, meta.nama, title)
       if (!chunks.length) throw new Error('Tidak ada chunk yang berhasil dibuat.')
 
-      const ex = await fetch(SUPA_URL+'/rest/v1/pojk_list?nomor=eq.'+encodeURIComponent(meta.nomor)+'&select=id',{headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON}})
-      const exData = await ex.json()
-      if (Array.isArray(exData)&&exData.length>0) {
-        const old = exData[0].id
-        await fetch(SUPA_URL+'/rest/v1/pojk_chunks?pojk_id=eq.'+old,{method:'DELETE',headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON}})
-        await fetch(SUPA_URL+'/rest/v1/pojk_list?id=eq.'+old,{method:'DELETE',headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON}})
-      }
-
-      const lr = await fetch(SUPA_URL+'/rest/v1/pojk_list',{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON,'Prefer':'return=representation'},body:JSON.stringify({nomor:meta.nomor,nama:meta.nama,tahun:meta.tahun,jumlah_pasal:chunks.length,file_url:fileUrl})})
-      if (!lr.ok) throw new Error('Insert pojk_list gagal')
-      const pojk_id = (await lr.json())[0].id
+      const lr = await fetch('/api/admin-pojk', { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+(state.user?.token||'')}, body: JSON.stringify({ nomor:meta.nomor, nama:meta.nama, tahun:meta.tahun, jumlah_pasal:chunks.length, file_url:fileUrl, judul:title, jenis_dokumen:meta.jenis, sektor, status }) })
+      if (!lr.ok) throw new Error('Simpan data peraturan gagal: ' + (await lr.text()))
+      const pojk_id = (await lr.json()).id
 
       statusEl.textContent='Embedding & menyimpan '+chunks.length+' chunks...'
       const embedPayload = chunks.map(c => ({ pasal: c.pasal, bab: c.bab||null, bab_title: c.bab_title||null, content: c.content, source: meta.nama }))

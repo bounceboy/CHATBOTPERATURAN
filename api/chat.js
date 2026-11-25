@@ -753,7 +753,7 @@ module.exports = async function handler(req, res) {
         const { data: pojkList } = await db
           .from('pojk_list')
           .select('id, nama, tahun')
-          .in('sektor', filterSektor)
+          .in('sektor', filterSektor).eq('status', 'berlaku')
           .order('tahun', { ascending: false })
 
         if (pojkList?.length > 0) {
@@ -817,7 +817,7 @@ module.exports = async function handler(req, res) {
               let q = db.from('pojk_chunks')
                 .select('id, pasal, bab, bab_title, source, content')
                 .filter('fts', 'fts', tsquery)
-                .in('sektor', filterSektor)
+                .in('sektor', filterSektor).eq('status', 'berlaku')
               if (pojkFilter && pojkFilter.length > 0 && pojkFilter.length <= 3) {
                 q = q.in('source', pojkFilter)
               }
@@ -844,7 +844,7 @@ module.exports = async function handler(req, res) {
             let q = db.from('pojk_chunks')
               .select('id, pasal, bab, bab_title, source, content')
               .textSearch('fts', tsq, { type: 'plain', config: 'simple' })
-              .in('sektor', filterSektor)
+              .in('sektor', filterSektor).eq('status', 'berlaku')
             if (pojkFilter && pojkFilter.length > 0 && pojkFilter.length <= 3) {
               q = q.in('source', pojkFilter)
             }
@@ -903,7 +903,7 @@ module.exports = async function handler(req, res) {
       const { data: allChunks } = await db
         .from('pojk_chunks')
         .select('id, pasal, bab, bab_title, source, content')
-        .in('sektor', filterSektor)
+        .in('sektor', filterSektor).eq('status', 'berlaku')
         .limit(500)
       if (allChunks?.length > 0) {
         chunks = allChunks
@@ -928,6 +928,7 @@ module.exports = async function handler(req, res) {
           .from('pojk_chunks')
           .select('id, pasal, bab, bab_title, source, content')
           .eq('source', source)
+          .eq('status', 'berlaku')
           .in('pasal', [...pasals].slice(0, MAKS_RENTANG * 2))
         const existIds = new Set(chunks.map(c => c.id))
         chunks = [...chunks, ...(rangeChunks || []).filter(c => !existIds.has(c.id))]

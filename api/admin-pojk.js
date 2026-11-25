@@ -3,6 +3,10 @@
 // DELETE /api/admin-pojk        → hapus POJK by id (admin)
 
 import { createClient } from '@supabase/supabase-js'
+import { verifyAdmin } from './_verify.js'
+
+const SEKTOR = ['asuransi', 'dapen', 'penjaminan', 'lintas']
+const STATUS = ['berlaku', 'dicabut']
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -27,13 +31,32 @@ async function verifyToken(authHeader) {
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, DELETE, OPTIONS')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
   if (req.method === 'OPTIONS') return res.status(200).end()
 
   const user = await verifyToken(req.headers.authorization)
   if (!user) {
     return res.status(401).json({ error: 'Unauthorized. Login sebagai admin.' })
+  }
+
+  // ── POST: daftarkan peraturan baru sebelum embedding ──
+  if (req.method === 'POST') {
+    if (!verifyAdmin(req.headers.authorization)) {
+      return res.status(401).json({ error: 'Sesi tidak valid. Silakan login ulang.' })
+    }
+    const { nomor, nama, tahun, jumlah_pasal, file_url, judul, jenis_dokumen, sektor, status } = req.body || {}
+    if (!nomor || !nama || !tahun || !jenis_dokumen) return res.status(400).json({ error: 'Metadata peraturan tidak lengkap.' })
+    if (!SEKTOR.includes(sektor)) return res.status(400).json({ error: 'Sektor wajib dipilih.' })
+    if (!STATUS.includes(status)) return res.status(400).json({ error: 'Status wajib dipilih.' })
+
+    const { data, error } = await supabase
+      .from('pojk_list')
+      .insert({ nomor, nama, tahun, jumlah_pasal, file_url, judul, jenis_dokumen, sektor, status })
+      .select('id')
+      .single()
+    if (error) return res.status(500).json({ error: error.message })
+    return res.status(200).json({ id: data.id })
   }
 
   // ── GET: list POJK ──
