@@ -69,6 +69,19 @@ function extractPasalNumbers(query) {
   return matches.map(m => parseInt(m.replace(/[Pp]asal\s+/, '')))
 }
 
+// "Pasal 151 sampai dengan Pasal 159" → daftar pasal dalam rentang, khusus rujukan ke peraturan itu sendiri
+function pasalDalamRentang(content) {
+  const found = new Set()
+  const re = /Pasal\s+(\d+)\s+sampai\s+dengan\s+Pasal\s+(\d+)(?!\d)(?!\s+(?:Undang-Undang|Peraturan))/gi
+  for (const m of (content || '').matchAll(re)) {
+    const from = Number(m[1]), to = Number(m[2])
+    if (to <= from || to - from >= MAKS_RENTANG) continue
+    for (let n = from; n <= to; n++) found.add(`Pasal ${n}`)
+  }
+  return [...found]
+}
+const MAKS_RENTANG = 15
+
 function extractMentionedPojk(messages) {
   // Ekstrak nama POJK yang sudah disebut di conversation history
   // Support berbagai format penulisan POJK
@@ -347,7 +360,7 @@ async function callOpenRouter(tier, messages, systemPrompt) {
         },
         body: JSON.stringify({
           model,
-          max_tokens: 2000,
+          max_tokens: 4000,
           temperature: 0.1,
           messages: [{ role: 'system', content: systemPrompt }, ...messages],
         }),
@@ -445,6 +458,7 @@ module.exports = async function handler(req, res) {
     const mentionedPojk = extractMentionedPojk(messages)
     const limit = file ? 12 : 10
     let chunks = []
+    let topChunks = []
     const sektor = detectSektor(effectiveQuery, messages)
     const filterSektor = [...sektor, 'lintas']
 
@@ -524,6 +538,8 @@ module.exports = async function handler(req, res) {
           vectorChunks = [...vectorChunks, ...global].slice(0, limit)
         }
       }
+
+      topChunks = vectorChunks.slice(0, 5)
 
       if (vectorChunks.length > 0) {
         const existIds = new Set(chunks.map(c => c.id))
@@ -898,6 +914,28 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // Lengkapi rentang pasal yang dirujuk hasil pencarian teratas
+    try {
+      const rentang = new Map() // source → Set<pasal>
+      for (const c of topChunks) {
+        for (const p of pasalDalamRentang(c.content)) {
+          if (!rentang.has(c.source)) rentang.set(c.source, new Set())
+          rentang.get(c.source).add(p)
+        }
+      }
+      for (const [source, pasals] of rentang.entries()) {
+        const { data: rangeChunks } = await db
+          .from('pojk_chunks')
+          .select('id, pasal, bab, bab_title, source, content')
+          .eq('source', source)
+          .in('pasal', [...pasals].slice(0, MAKS_RENTANG * 2))
+        const existIds = new Set(chunks.map(c => c.id))
+        chunks = [...chunks, ...(rangeChunks || []).filter(c => !existIds.has(c.id))]
+      }
+    } catch (rangeErr) {
+      console.error('Range retrieval error:', rangeErr.message)
+    }
+
     // Build context string
     // Sanitasi teks agar tidak ada karakter non-ASCII yang merusak ByteString
     function sanitize(s) {
@@ -966,7 +1004,8 @@ INSTRUKSI WAJIB — DILARANG DILANGGAR:
 6. Selalu cantumkan sumber tepat: nama POJK lengkap dan nomor pasal dari konteks.
 7. Jika user meminta "bunyi" atau "isi" pasal, KUTIP LANGSUNG dari konteks — jangan parafrase.
 8. Jangan mengasumsikan bahwa ketentuan untuk satu jenis entitas berlaku sama untuk jenis lain (misal: konvensional ≠ syariah) kecuali konteks menyatakan demikian secara eksplisit.
-9. Gunakan Bahasa Indonesia yang formal namun mudah dipahami.`
+9. Gunakan Bahasa Indonesia yang formal namun mudah dipahami.
+10. Untuk pertanyaan tentang batasan, kewajiban, atau sanksi, bahas SEMUA ketentuan relevan yang ada di konteks beserta cakupannya. Jika konteks merujuk pasal yang isinya tidak tersedia, sebutkan bahwa daftar jawaban mungkin belum lengkap.`
 
     // Build messages
     let apiMessages
