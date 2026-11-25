@@ -42,6 +42,28 @@ function getSupabase() {
   return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
 }
 
+const NAMA_SEKTOR = { asuransi: 'perasuransian', dapen: 'dana pensiun', penjaminan: 'penjaminan' }
+
+function sektorDariTeks(text) {
+  // "Lembaga Penjamin Simpanan" dan "penjaminan polis" bukan sektor penjaminan
+  const t = (text || '').toLowerCase().replace(/lembaga penjamin simpanan|penjaminan polis/g, ' ')
+  const found = []
+  if (/dana pensiun|\bdapen\b|\bdppk\b|\bdplk\b/.test(t)) found.push('dapen')
+  if (/penjamin/.test(t)) found.push('penjaminan')
+  if (/asuransi|\bpialang\b/.test(t)) found.push('asuransi')
+  return found
+}
+
+// Sektor dari pertanyaan saat ini; jika tidak ada, dari pertanyaan user terakhir yang menyebutnya
+function detectSektor(query, messages) {
+  const history = (messages || []).filter(m => m.role === 'user' && typeof m.content === 'string').reverse()
+  for (const text of [query, ...history.map(m => m.content)]) {
+    const found = sektorDariTeks(text)
+    if (found.length > 0) return found
+  }
+  return ['asuransi']
+}
+
 function extractPasalNumbers(query) {
   const matches = query.match(/[Pp]asal\s+(\d+)/g) || []
   return matches.map(m => parseInt(m.replace(/[Pp]asal\s+/, '')))
@@ -113,7 +135,7 @@ function normalizeQuery(q) {
 
 // Query expansion: rewrite follow-up query dan query konseptual
 // menjadi query retrieval yang optimal sebelum dikirim ke vector search
-async function expandQuery(query, messages) {
+async function expandQuery(query, messages, sektor) {
   const needsContext = /tersebut|tadi|diatas|di atas|pasal tersebut|hal tersebut|pelanggaran tersebut|kewajiban tersebut|ketentuan tersebut|aturan tersebut/i.test(query)
   const isShort = query.trim().split(/\s+/).length <= 6
   // Query konseptual: pakai bahasa bisnis, tidak menyebut pasal/POJK spesifik
@@ -125,7 +147,7 @@ async function expandQuery(query, messages) {
 
   // Shortcut deterministik: pola bisnis yang sering gagal di LLM langsung di-map
   // ke frasa regulasi yang sudah terbukti berhasil di vector search
-  if (isConceptual) {
+  if (isConceptual && sektor.length === 1 && sektor[0] === 'asuransi') {
     const q = query.toLowerCase()
     if (/kekosongan.*(direksi|direktur)|(direksi|direktur).*(kosong|kekosongan)/.test(q))
       return 'kewajiban jumlah minimum anggota direksi perusahaan asuransi'
@@ -164,6 +186,8 @@ Contoh:
 "modal perusahaan kurang dari minimum" → "persyaratan modal minimum ekuitas perusahaan asuransi"
 "DPS tidak hadir rapat" → "kewajiban kehadiran dewan pengawas syariah dalam rapat"
 "perusahaan terlambat lapor ke OJK" → "kewajiban penyampaian laporan berkala perusahaan asuransi"
+
+Sektor pertanyaan ini: ${sektor.map(x => NAMA_SEKTOR[x]).join(', ')}. Gunakan istilah entitas sektor tersebut. Contoh di atas memakai asuransi hanya sebagai ilustrasi.
 
 Pertanyaan: ${query}
 Output:`
@@ -421,10 +445,12 @@ module.exports = async function handler(req, res) {
     const mentionedPojk = extractMentionedPojk(messages)
     const limit = file ? 12 : 10
     let chunks = []
+    const sektor = detectSektor(effectiveQuery, messages)
+    const filterSektor = [...sektor, 'lintas']
 
     // Query expansion: rewrite follow-up query jadi standalone sebelum retrieval
     // Hanya untuk non-file query (file analysis tidak butuh expansion)
-    const expandedQuery = file ? effectiveQuery : await expandQuery(effectiveQuery, messages)
+    const expandedQuery = file ? effectiveQuery : await expandQuery(effectiveQuery, messages, sektor)
 
     // enrichedQuery HANYA untuk scoring, TIDAK untuk FTS search
     // Ini mencegah kata-kata dari history meracuni retrieval
@@ -479,6 +505,7 @@ module.exports = async function handler(req, res) {
         query_embedding: queryEmbedding,
         match_count: limit,
         filter_source: filterSource,
+        filter_sektor: filterSource ? null : filterSektor,
       })
 
       let vectorChunks = (!e1 && v1?.length > 0) ? v1 : []
@@ -489,6 +516,7 @@ module.exports = async function handler(req, res) {
           query_embedding: queryEmbedding,
           match_count: limit,
           filter_source: null,
+          filter_sektor: filterSektor,
         })
         if (!e2 && v2?.length > 0) {
           const existIds = new Set(vectorChunks.map(c => c.id))
@@ -641,6 +669,7 @@ module.exports = async function handler(req, res) {
             query_embedding: sanksiEmbedding,
             match_count: 3,
             filter_source: source,
+            filter_sektor: null,
           })
           if (sanksiChunks?.length > 0) {
             const existIds = new Set(chunks.map(c => c.id))
@@ -682,6 +711,7 @@ module.exports = async function handler(req, res) {
             query_embedding: refEmbedding,
             match_count: 3,
             filter_source: refSource,
+            filter_sektor: null,
           })
           if (refChunks?.length > 0) {
             const existIds = new Set(chunks.map(c => c.id))
@@ -707,6 +737,7 @@ module.exports = async function handler(req, res) {
         const { data: pojkList } = await db
           .from('pojk_list')
           .select('id, nama, tahun')
+          .in('sektor', filterSektor)
           .order('tahun', { ascending: false })
 
         if (pojkList?.length > 0) {
@@ -770,6 +801,7 @@ module.exports = async function handler(req, res) {
               let q = db.from('pojk_chunks')
                 .select('id, pasal, bab, bab_title, source, content')
                 .filter('fts', 'fts', tsquery)
+                .in('sektor', filterSektor)
               if (pojkFilter && pojkFilter.length > 0 && pojkFilter.length <= 3) {
                 q = q.in('source', pojkFilter)
               }
@@ -796,6 +828,7 @@ module.exports = async function handler(req, res) {
             let q = db.from('pojk_chunks')
               .select('id, pasal, bab, bab_title, source, content')
               .textSearch('fts', tsq, { type: 'plain', config: 'simple' })
+              .in('sektor', filterSektor)
             if (pojkFilter && pojkFilter.length > 0 && pojkFilter.length <= 3) {
               q = q.in('source', pojkFilter)
             }
@@ -854,6 +887,7 @@ module.exports = async function handler(req, res) {
       const { data: allChunks } = await db
         .from('pojk_chunks')
         .select('id, pasal, bab, bab_title, source, content')
+        .in('sektor', filterSektor)
         .limit(500)
       if (allChunks?.length > 0) {
         chunks = allChunks
@@ -895,9 +929,11 @@ module.exports = async function handler(req, res) {
       ? dedupedChunks.map(c => `=== ${c.pasal} - ${sanitize(c.source)} (${c.bab || ''}) ===\n${sanitize(c.content)}`).join('\n\n')
       : 'Tidak ada pasal yang relevan ditemukan dalam database.'
 
+    const namaSektor = sektor.map(x => NAMA_SEKTOR[x]).join(', ')
+
     // System prompt berbeda untuk file analysis vs chat biasa
     const systemPrompt = file
-      ? `Kamu adalah auditor regulasi OJK yang ahli dalam pengawasan sektor perasuransian.
+      ? `Kamu adalah auditor regulasi OJK yang ahli dalam pengawasan sektor ${namaSektor}.
 
 Tugasmu: Analisis dokumen yang diunggah dan identifikasi ketidaksesuaian dengan POJK.
 
@@ -919,7 +955,7 @@ INSTRUKSI:
 - Gunakan HANYA pasal-pasal dari konteks POJK yang diberikan
 - Jika dokumen sudah sesuai, nyatakan dengan jelas
 - Jika tidak dapat membaca isi dokumen, sampaikan dengan jelas`
-      : `Kamu adalah konsultan regulasi OJK yang ahli dalam peraturan sektor perasuransian dan jasa keuangan Indonesia.
+      : `Kamu adalah konsultan regulasi OJK yang ahli dalam peraturan sektor ${namaSektor} dan jasa keuangan Indonesia.
 
 INSTRUKSI WAJIB — DILARANG DILANGGAR:
 1. Jawab HANYA berdasarkan teks dari konteks pasal yang diberikan di bawah (KONTEKS PASAL POJK). TIDAK BOLEH menggunakan pengetahuan di luar konteks tersebut.
